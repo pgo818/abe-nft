@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ .title }} - NFT管理平台</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="/static/css/style.css">
+    <style>
+        .wallet-address-short {
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+        }
+
+        .table-responsive {
+            border-radius: 0.375rem;
+            box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+        }
+
+        .table th {
+            border-top: none;
+            font-weight: 600;
+            background-color: #f8f9fa;
+        }
+
+        .table-hover tbody tr:hover {
+            background-color: rgba(0, 0, 0, 0.075);
+        }
+
+        .table-success {
+            background-color: rgba(25, 135, 84, 0.1);
+        }
+
+        .table-danger {
+            background-color: rgba(220, 53, 69, 0.1);
+        }
+
+        .text-truncate {
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+    </style>
+</head>
+
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container">
+            <a class="navbar-brand" href="/">NFT平台</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="#" id="nav-mint">铸造NFT</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#" id="nav-metadata">创建元数据</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#" id="nav-my-nfts">我的NFT</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#" id="nav-requests">申请管理</a>
+                    </li>
+                </ul>
+                <div class="d-flex">
+                    <button id="connect-wallet" class="btn btn-outline-light">连接钱包</button>
+                    <div id="wallet-info" class="text-light ms-3 d-none d-flex align-items-center">
+                        <span id="wallet-address" class="me-2"></span>
+                        <button id="disconnect-wallet" class="btn btn-outline-light btn-sm">断开</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mt-5">
+        <!-- 连接钱包提示 -->
+        <div id="connect-wallet-prompt" class="alert alert-info text-center">
+            <h4>请先连接MetaMask钱包</h4>
+            <p>要使用NFT平台功能，您需要先连接MetaMask钱包</p>
+            <button id="connect-wallet-btn" class="btn btn-primary">连接钱包</button>
+        </div>
+        <!-- 在铸造NFT表单之前添加 -->
+        <div id="all-nfts-section" class="section">
+            <h2>所有NFT</h2>
+            <div class="row" id="all-nfts-container">
+                <!-- 所有NFT将动态加载到这里 -->
+            </div>
+        </div>
+        <!-- 铸造NFT表单 -->
+        <div id="mint-nft-section" class="section d-none">
+            <h2>铸造新NFT</h2>
+            <div class="card">
+                <div class="card-body">
+                    <form id="mint-form">
+                        <div class="mb-3">
+                            <label for="nft-uri" class="form-label">NFT URI (IPFS或HTTP)</label>
+                            <input type="text" class="form-control" id="nft-uri" placeholder="ipfs://..." required>
+                            <div class="form-text">指向NFT元数据的URI</div>
+                        </div>
+                        <button type="submit" class="btn btn-primary">铸造NFT</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- 创建NFT元数据表单 -->
+        <div id="metadata-section" class="section d-none">
+            <h2>创建NFT元数据</h2>
+            <div class="card">
+                <div class="card-body">
+                    <form id="metadata-form">
+                        <div class="mb-3">
+                            <label for="metadata-name" class="form-label">名称</label>
+                            <input type="text" class="form-control" id="metadata-name" placeholder="输入NFT名称" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="metadata-description" class="form-label">描述</label>
+                            <textarea class="form-control" id="metadata-description" rows="3" placeholder="输入NFT描述"
+                                required></textarea>
+                        </div>
+                        <div class="mb-3">
+                            <label for="metadata-external-url" class="form-label">外部链接</label>
+                            <input type="url" class="form-control" id="metadata-external-url"
+                                placeholder="https://example.com">
+                        </div>
+                        <div class="mb-3">
+                            <label for="metadata-image" class="form-label">图像链接</label>
+                            <input type="url" class="form-control" id="metadata-image"
+                                placeholder="https://example.com/image.jpg 或 ipfs://..." required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="metadata-policy" class="form-label">策略</label>
+                            <input type="text" class="form-control" id="metadata-policy" placeholder="输入策略值" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="metadata-ciphertext" class="form-label">加密密文</label>
+                            <input type="text" class="form-control" id="metadata-ciphertext" placeholder="输入加密密文"
+                                required>
+                        </div>
+                        <button type="submit" class="btn btn-primary">创建元数据并上传到IPFS</button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- 元数据预览 -->
+            <div class="card mt-4">
+                <div class="card-header">
+                    <h5>元数据预览</h5>
+                </div>
+                <div class="card-body">
+                    <pre id="metadata-preview" class="bg-light p-3"></pre>
+                </div>
+            </div>
+
+            <!-- 已创建的元数据列表 -->
+            <div class="card mt-4">
+                <div class="card-header">
+                    <h5>已创建的元数据</h5>
+                    <button class="btn btn-sm btn-outline-primary" onclick="loadMetadataList()">刷新</button>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>名称</th>
+                                    <th>描述</th>
+                                    <th>IPFS哈希</th>
+                                    <th>创建时间</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody id="metadata-list">
+                                <!-- 元数据列表将动态加载到这里 -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 我的NFT部分 -->
+        <div id="my-nfts-section" class="section d-none">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2>我的NFT</h2>
+                <button class="btn btn-info" onclick="showRequestsModal()">申请管理</button>
+            </div>
+            <div id="my-nfts-list" class="row">
+                <!-- NFT卡片将在这里动态加载 -->
+            </div>
+        </div>
+
+        <!-- 申请管理 -->
+        <div id="requests-section" class="section d-none">
+            <h2>NFT申请管理</h2>
+            <ul class="nav nav-tabs" id="requestTabs">
+                <li class="nav-item">
+                    <a class="nav-link active" data-bs-toggle="tab" href="#pending-requests">待处理申请</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" data-bs-toggle="tab" href="#my-requests">我的申请</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" data-bs-toggle="tab" href="#new-request">创建申请</a>
+                </li>
+            </ul>
+            <div class="tab-content mt-3">
+                <div class="tab-pane fade show active" id="pending-requests">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead class="table-light">
+                                <tr>
+                                    <th style="width: 5%;">ID</th>
+                                    <th style="width: 10%;">父NFT ID</th>
+                                    <th style="width: 25%;">申请者地址</th>
+                                    <th style="width: 30%;">URI</th>
+                                    <th style="width: 10%;">状态</th>
+                                    <th style="width: 20%;">操作</th>
+                                </tr>
+                            </thead>
+                            <tbody id="pending-requests-list">
+                                <!-- 待处理申请将动态加载到这里 -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="tab-pane fade" id="my-requests">
+                    <div class="table-responsive">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>父NFT ID</th>
+                                    <th>申请者地址</th>
+                                    <th>URI</th>
+                                    <th>状态</th>
+                                </tr>
+                            </thead>
+                            <tbody id="my-requests-list">
+                                <!-- 我的申请将动态加载到这里 -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="tab-pane fade" id="new-request">
+                    <div class="card">
+                        <div class="card-body">
+                            <form id="request-form">
+                                <div class="mb-3">
+                                    <label for="parent-token-id" class="form-label">父NFT ID</label>
+                                    <input type="text" class="form-control" id="parent-token-id" required>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="request-uri" class="form-label">NFT URI</label>
+                                    <input type="text" class="form-control" id="request-uri" placeholder="ipfs://..."
+                                        required>
+                                </div>
+                                <button type="submit" class="btn btn-primary">提交申请</button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 加载指示器 -->
+    <div id="loading-overlay" class="d-none">
+        <div class="spinner-border text-light" role="status">
+            <span class="visually-hidden">加载中...</span>
+        </div>
+    </div>
+
+    <!-- 结果提示模态框 -->
+    <div class="modal fade" id="result-modal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="result-title">操作结果</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p id="result-message"></p>
+                    <div id="tx-hash-container" class="d-none">
+                        <p>交易哈希:</p>
+                        <code id="tx-hash" class="d-block p-2 bg-light"></code>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 申请子NFT模态框 -->
+    <div class="modal fade" id="request-child-modal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">申请子NFT</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <form id="request-child-form">
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label for="request-parent-token-id" class="form-label">父NFT ID</label>
+                            <input type="text" class="form-control" id="request-parent-token-id" readonly>
+                        </div>
+                        <div class="mb-3">
+                            <label for="request-child-uri" class="form-label">子NFT URI</label>
+                            <input type="text" class="form-control" id="request-child-uri" placeholder="ipfs://..."
+                                required>
+                            <div class="form-text">指向子NFT元数据的URI</div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                        <button type="submit" class="btn btn-primary">提交申请</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- 创建子NFT模态框 -->
+    <div class="modal fade" id="create-child-modal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">创建子NFT</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <form id="create-child-form">
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label for="create-parent-token-id" class="form-label">父NFT ID</label>
+                            <input type="text" class="form-control" id="create-parent-token-id" readonly>
+                        </div>
+                        <div class="mb-3">
+                            <label for="create-recipient" class="form-label">接收者地址</label>
+                            <input type="text" class="form-control" id="create-recipient" placeholder="0x..." required>
+                            <div class="form-text">子NFT接收者的钱包地址</div>
+                        </div>
+                        <div class="mb-3">
+                            <label for="create-child-uri" class="form-label">子NFT URI</label>
+                            <input type="text" class="form-control" id="create-child-uri" placeholder="ipfs://..."
+                                required>
+                            <div class="form-text">指向子NFT元数据的URI</div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                        <button type="submit" class="btn btn-primary">创建子NFT</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- 更新元数据模态框 -->
+    <div class="modal fade" id="update-metadata-modal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">更新NFT元数据</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <form id="update-metadata-form">
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label for="update-token-id" class="form-label">NFT Token ID</label>
+                            <input type="text" class="form-control" id="update-token-id" readonly>
+                        </div>
+                        <div class="mb-3">
+                            <label for="update-contract-type" class="form-label">合约类型</label>
+                            <input type="text" class="form-control" id="update-contract-type" readonly>
+                        </div>
+                        <div class="mb-3">
+                            <label for="update-new-uri" class="form-label">新的URI</label>
+                            <input type="text" class="form-control" id="update-new-uri" placeholder="ipfs://..."
+                                required>
+                            <div class="form-text">新的元数据URI地址</div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                        <button type="submit" class="btn btn-primary">更新元数据</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- 申请管理模态框 -->
+    <div class="modal fade" id="requests-modal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">申请管理</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="requests-list">
+                        <!-- 申请列表将在这里动态加载 -->
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.ethers.io/lib/ethers-5.7.2.umd.min.js"></script>
+    <script src="/static/js/app.js"></script>
+</body>
+
+</html>

@@ -1,0 +1,16 @@
+{
+    "description": "ABE",
+    "external_url": "https://openseacreatures.io/3",
+    "image": "https://ipfs.filebase.io/ipfs/QmVsPq1aNWYar6MtLTW2tqWwqcXWkk8LG76LB11eQhRjgk",
+    "name": "ABE",
+    "attributes": [
+        {
+            "trait_type": "HASH",
+            "value": "HASH"
+        },
+        {
+            "trait_type": "Encrypted_ciphertext",
+            "value": "Encrypted_ciphertext"
+        }
+    ]
+}

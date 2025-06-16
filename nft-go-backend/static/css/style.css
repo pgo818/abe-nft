@@ -1,0 +1,107 @@
+/* 全局样式 */
+body {
+    background-color: #f8f9fa;
+}
+
+/* 钱包地址样式 */
+#wallet-address {
+    font-family: monospace;
+    font-size: 0.9rem;
+}
+
+/* 截断长地址 */
+.wallet-address-short {
+    display: inline-block;
+    max-width: 150px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* NFT卡片样式 */
+.nft-card {
+    transition: transform 0.3s;
+    margin-bottom: 20px;
+}
+
+.nft-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+}
+
+.nft-card img {
+    height: 200px;
+    object-fit: cover;
+}
+
+/* 加载指示器 */
+#loading-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 9999;
+}
+
+/* 交易哈希样式 */
+#tx-hash {
+    word-break: break-all;
+    background-color: #f8f9fa;
+    border-radius: 4px;
+    padding: 8px;
+    font-size: 0.9rem;
+}
+
+/* 响应式调整 */
+@media (max-width: 768px) {
+    .container {
+        padding-left: 15px;
+        padding-right: 15px;
+    }
+
+    .nft-card img {
+        height: 180px;
+    }
+}
+
+/* 导航链接样式 */
+.nav-link.active {
+    color: white !important;
+    font-weight: bold;
+}
+
+.nav-link:hover {
+    color: white !important;
+}
+
+/* NFT卡片按钮样式 */
+.nft-card .btn-group {
+    width: 100%;
+}
+
+.nft-card .btn-sm {
+    font-size: 0.8rem;
+    padding: 0.25rem 0.5rem;
+}
+
+/* 钱包信息样式 */
+#wallet-info {
+    display: flex;
+    align-items: center;
+}
+
+#disconnect-wallet {
+    font-size: 0.8rem;
+    padding: 0.2rem 0.5rem;
+}
+
+/* 模态框样式优化 */
+.modal-body .form-text {
+    font-size: 0.875rem;
+    color: #6c757d;
+}
