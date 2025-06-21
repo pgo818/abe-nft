@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>医生DID和可验证凭证系统</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+
+<body>
+    <div class="container">
+        <header>
+            <h1>医生DID和可验证凭证系统</h1>
+            <div id="account-info">
+                <!-- 未连接状态 -->
+                <div id="wallet-disconnected" class="wallet-status">
+                    <span class="status-text">钱包未连接</span>
+                    <button id="connect-wallet" class="btn-connect">
+                        <i class="fas fa-wallet"></i>
+                        连接钱包
+                    </button>
+                </div>
+
+                <!-- 已连接状态 -->
+                <div id="wallet-connected" class="wallet-status" style="display: none;">
+                    <div class="wallet-info">
+                        <span class="status-text">钱包地址:</span>
+                        <span id="wallet-address" class="address-display">未连接</span>
+                        <button id="disconnect-wallet" class="btn-disconnect">
+                            <i class="fas fa-sign-out-alt"></i>
+                            断开连接
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <div class="tabs">
+            <button class="tab-button active" data-tab="doctor-did">医生身份</button>
+            <button class="tab-button" data-tab="doctor-vc">医生凭证</button>
+            <button class="tab-button" data-tab="verify-vc">验证凭证</button>
+        </div>
+
+        <div class="tab-content active" id="doctor-did">
+            <h2>医生DID创建</h2>
+            <div class="card">
+                <div class="form-group">
+                    <label for="doctor-name">姓名:</label>
+                    <input type="text" id="doctor-name" placeholder="请输入医生姓名">
+                </div>
+                <div class="form-group">
+                    <label for="license-number">执业编号:</label>
+                    <input type="text" id="license-number" placeholder="请输入执业编号">
+                </div>
+                <button id="create-doctor-did">创建医生DID</button>
+                <div class="result-box" id="doctor-did-result"></div>
+            </div>
+        </div>
+
+        <div class="tab-content" id="doctor-vc">
+            <h2>医生凭证颁发</h2>
+            <div class="card">
+                <div class="form-group">
+                    <label for="issuer-did">颁发者DID (医院):</label>
+                    <input type="text" id="issuer-did" value="0x1234" placeholder="医院DID">
+                </div>
+                <div class="form-group">
+                    <label for="doctor-did-input">医生DID:</label>
+                    <input type="text" id="doctor-did-input" placeholder="医生DID">
+                </div>
+                <div class="form-group">
+                    <label for="vc-type">凭证类型:</label>
+                    <select id="vc-type">
+                        <option value="执业资格">执业资格</option>
+                        <option value="专科医师">专科医师</option>
+                        <option value="主任医师">主任医师</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="vc-content">凭证内容:</label>
+                    <textarea id="vc-content" placeholder="凭证详情内容"></textarea>
+                </div>
+                <button id="issue-doctor-vc">颁发凭证</button>
+                <div class="result-box" id="issue-vc-result"></div>
+            </div>
+        </div>
+
+        <div class="tab-content" id="verify-vc">
+            <h2>验证凭证</h2>
+            <div class="card">
+                <div class="form-group">
+                    <label for="verify-vc-id">凭证ID:</label>
+                    <input type="text" id="verify-vc-id" placeholder="请输入凭证ID">
+                </div>
+                <button id="verify-doctor-vc">验证凭证</button>
+                <div class="result-box" id="verify-vc-result"></div>
+            </div>
+
+            <h2>查询医生凭证</h2>
+            <div class="card">
+                <div class="form-group">
+                    <label for="query-doctor-did">医生DID:</label>
+                    <input type="text" id="query-doctor-did" placeholder="请输入医生DID">
+                </div>
+                <button id="query-doctor-vcs">查询凭证</button>
+                <div class="result-box" id="query-vcs-result"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 加载脚本 -->
+    <script src="/static/js/did_vc.js"></script>
+</body>
+
+</html>

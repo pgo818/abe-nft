@@ -26,8 +26,21 @@ function restoreWalletState() {
     return null;
 }
 
+// 初始化钱包连接
+function initializeWalletConnection() {
+    console.log('初始化钱包连接...');
+    // 这个函数用于初始化钱包连接状态
+    // 主要逻辑在checkIfWalletConnected中处理
+}
+
 // DOM加载完成后初始化
 document.addEventListener('DOMContentLoaded', () => {
+    // 初始化钱包连接
+    initializeWalletConnection();
+
+    // 隐藏所有不相关的界面元素
+    hideIrrelevantSections();
+
     // 检查MetaMask是否已安装
     if (!checkIfMetaMaskInstalled()) {
         return;
@@ -47,6 +60,25 @@ document.addEventListener('DOMContentLoaded', () => {
             // 网络变化时重新加载页面
             window.location.reload();
         });
+    }
+
+    // 在页面加载时检查是否有保存的钱包和DID
+    const walletAddress = localStorage.getItem('userWallet');
+    const did = localStorage.getItem('userDID');
+
+    if (walletAddress && did) {
+        updateWalletInfo(walletAddress, did);
+    }
+
+    // 添加连接钱包按钮
+    const header = document.querySelector('header');
+    if (header) {
+        const walletButton = document.createElement('button');
+        walletButton.id = 'connect-wallet';
+        walletButton.className = 'btn btn-primary';
+        walletButton.innerHTML = '<i class="fas fa-wallet"></i> 连接钱包创建DID';
+        walletButton.onclick = createDIDFromWallet;
+        header.appendChild(walletButton);
     }
 });
 
@@ -81,11 +113,18 @@ function setupEventListeners() {
     }
 
     // 导航事件
+    const navAllNfts = document.getElementById('nav-all-nfts');
     const navMint = document.getElementById('nav-mint');
     const navMetadata = document.getElementById('nav-metadata');
     const navMyNfts = document.getElementById('nav-my-nfts');
     const navRequests = document.getElementById('nav-requests');
 
+    if (navAllNfts) {
+        navAllNfts.addEventListener('click', () => {
+            showSection('all-nfts-section');
+            loadAllNFTs();
+        });
+    }
     if (navMint) {
         navMint.addEventListener('click', () => {
             showSection('mint-nft-section');
@@ -202,37 +241,92 @@ async function checkIfWalletConnected() {
 
 // 连接钱包
 async function connectWallet() {
-    console.log('尝试连接钱包...');
-
-    if (!checkIfMetaMaskInstalled()) {
-        console.log('MetaMask未安装');
-        return;
+    if (!window.ethereum) {
+        alert("请安装MetaMask钱包！");
+        return null;
     }
 
     try {
-        console.log('请求账户权限...');
-        const accounts = await window.ethereum.request({
-            method: 'eth_requestAccounts'
+        const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+        const walletAddress = accounts[0];
+        console.log("钱包连接成功:", walletAddress);
+        return walletAddress;
+    } catch (error) {
+        console.error("连接钱包失败:", error);
+        alert("连接钱包失败: " + error.message);
+        return null;
+    }
+}
+
+// 从钱包创建DID
+async function createDIDFromWallet() {
+    const walletAddress = await connectWallet();
+    if (!walletAddress) return;
+
+    try {
+        const response = await fetch(`/api/did/wallet/${walletAddress}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            }
         });
 
-        console.log('获取到账户:', accounts);
+        const data = await response.json();
+        if (response.ok) {
+            if (data.exists) {
+                alert(`已找到现有DID: ${data.did}`);
+            } else {
+                alert(`创建DID成功: ${data.did}`);
+            }
+            // 保存DID到本地存储
+            localStorage.setItem('userDID', data.did);
+            localStorage.setItem('userWallet', walletAddress);
 
-        if (accounts.length > 0) {
-            currentAccount = accounts[0];
-            isConnected = true;
-
-            // 保存钱包状态
-            saveWalletState(currentAccount);
-
-            updateUIForConnectedWallet();
-            console.log('钱包连接成功:', currentAccount);
+            // 更新UI显示
+            updateWalletInfo(walletAddress, data.did);
         } else {
-            console.log('没有获取到账户');
+            alert("创建DID失败: " + (data.error || "未知错误"));
         }
     } catch (error) {
-        console.error('连接钱包失败:', error);
-        showError('连接钱包失败: ' + error.message);
+        console.error("创建DID错误:", error);
+        alert("创建DID时发生错误: " + error.message);
     }
+}
+
+// 更新钱包信息显示
+function updateWalletInfo(walletAddress, did) {
+    const walletInfoDiv = document.getElementById('wallet-info');
+    if (!walletInfoDiv) {
+        // 创建钱包信息显示区域
+        const container = document.querySelector('.container');
+        const newWalletInfo = document.createElement('div');
+        newWalletInfo.id = 'wallet-info';
+        newWalletInfo.className = 'wallet-info';
+        newWalletInfo.innerHTML = `
+            <div class="wallet-address">
+                <strong>钱包地址:</strong> ${shortenAddress(walletAddress)}
+            </div>
+            <div class="did-info">
+                <strong>DID:</strong> ${did}
+            </div>
+        `;
+        container.insertBefore(newWalletInfo, container.firstChild);
+    } else {
+        // 更新现有钱包信息
+        walletInfoDiv.innerHTML = `
+            <div class="wallet-address">
+                <strong>钱包地址:</strong> ${shortenAddress(walletAddress)}
+            </div>
+            <div class="did-info">
+                <strong>DID:</strong> ${did}
+            </div>
+        `;
+    }
+}
+
+// 缩短地址显示
+function shortenAddress(address) {
+    return address ? `${address.substring(0, 6)}...${address.substring(address.length - 4)}` : '';
 }
 
 // 处理账户变更
@@ -257,13 +351,25 @@ function handleAccountsChanged(accounts) {
 function updateUIForConnectedWallet() {
     // 显示钱包地址
     const displayAddress = `${currentAccount.substring(0, 6)}...${currentAccount.substring(38)}`;
-    document.getElementById('wallet-address').textContent = displayAddress;
-    document.getElementById('wallet-address').title = currentAccount;
+    const walletAddressElement = document.getElementById('wallet-address');
+    if (walletAddressElement) {
+        walletAddressElement.textContent = displayAddress;
+        walletAddressElement.title = currentAccount;
+    } else {
+        console.error('未找到wallet-address元素');
+    }
 
     // 更新UI元素
-    document.getElementById('connect-wallet').classList.add('d-none');
-    document.getElementById('wallet-info').classList.remove('d-none');
-    document.getElementById('connect-wallet-prompt').classList.add('d-none');
+    const connectWalletBtn = document.getElementById('connect-wallet');
+    const walletInfoDiv = document.getElementById('wallet-info');
+    const connectWalletPrompt = document.getElementById('connect-wallet-prompt');
+
+    if (connectWalletBtn) connectWalletBtn.classList.add('d-none');
+    if (walletInfoDiv) walletInfoDiv.classList.remove('d-none');
+    if (connectWalletPrompt) connectWalletPrompt.classList.add('d-none');
+
+    // 更新钱包信息显示
+    updateWalletInfo(currentAccount, localStorage.getItem('userDID') || '');
 
     // 默认显示主界面而不是铸造NFT页面
     showSection('all-nfts-section');
@@ -545,9 +651,21 @@ async function loadAllNFTs() {
 
 // 修改加载待处理申请的函数
 async function loadPendingRequests() {
-    if (!isConnected) return;
+    console.log('loadPendingRequests 被调用');
+    console.log('isConnected:', isConnected);
+    console.log('currentAccount:', currentAccount);
+
+    if (!isConnected) {
+        console.log('用户未连接钱包，无法加载请求');
+        return;
+    }
 
     const pendingList = document.getElementById('pending-requests-list');
+    if (!pendingList) {
+        console.error('找不到pending-requests-list元素');
+        return;
+    }
+
     pendingList.innerHTML = '<tr><td colspan="6" class="text-center">加载中...</td></tr>';
 
     try {
@@ -558,6 +676,7 @@ async function loadPendingRequests() {
 
         const signature = await signMessage(message);
 
+        console.log('发送请求到API...');
         const response = await fetch(`${API_BASE_URL}/nft/all-requests`, {
             method: 'GET',
             headers: {
@@ -568,73 +687,190 @@ async function loadPendingRequests() {
             }
         });
 
+        console.log('API响应状态:', response.status);
         const result = await response.json();
 
+        // 添加调试信息
+        console.log("API返回的完整响应:", result);
+        console.log("响应是否OK:", response.ok);
+        console.log("请求数量:", result.requests ? result.requests.length : 0);
+
         if (response.ok && result.requests) {
+            console.log("开始处理请求数据...");
+
             if (result.requests.length === 0) {
+                console.log("没有请求数据");
                 pendingList.innerHTML = '<tr><td colspan="6" class="text-center">没有待处理的申请</td></tr>';
                 return;
             }
 
-            pendingList.innerHTML = result.requests.map(req => {
-                // 状态显示
-                let statusBadge = '';
-                switch (req.status) {
-                    case 'pending':
-                        statusBadge = '<span class="badge bg-warning">待处理</span>';
-                        break;
-                    case 'approved':
-                        statusBadge = '<span class="badge bg-success">已完成</span>';
-                        break;
-                    case 'rejected':
-                        statusBadge = '<span class="badge bg-danger">已拒绝</span>';
-                        break;
-                    default:
-                        statusBadge = '<span class="badge bg-secondary">未知</span>';
-                }
+            // 添加调试信息
+            console.log("第一条请求数据:", result.requests[0]);
+            console.log("所有请求数据:", result.requests);
 
-                // 操作按钮 - 只有在可操作且状态为pending时才显示
-                let actionButtons = '';
-                if (req.canOperate && req.status === 'pending') {
-                    actionButtons = `
-                        <button class="btn btn-success btn-sm me-1" onclick="processRequest(${req.ID}, 'approve')">批准</button>
-                        <button class="btn btn-danger btn-sm" onclick="processRequest(${req.ID}, 'reject')">拒绝</button>
+            try {
+                const htmlContent = result.requests.map((req, index) => {
+                    // 调试每个请求对象
+                    console.log(`处理第${index + 1}个请求:`, req);
+                    console.log("请求ID:", req.ID, "或", req.id);
+
+                    // 使用正确的ID字段（兼容大小写）
+                    const requestId = req.ID || req.id || req.RequestId || req.requestId;
+                    console.log("最终使用的请求ID:", requestId);
+
+                    if (!requestId) {
+                        console.error("请求ID为空:", req);
+                        return '';
+                    }
+
+                    // 状态显示
+                    let statusBadge = '';
+                    switch (req.status) {
+                        case 'pending':
+                            statusBadge = '<span class="badge bg-warning">待处理</span>';
+                            break;
+                        case 'approved':
+                            statusBadge = '<span class="badge bg-success">已完成</span>';
+                            break;
+                        case 'rejected':
+                            statusBadge = '<span class="badge bg-danger">已拒绝</span>';
+                            break;
+                        default:
+                            statusBadge = '<span class="badge bg-secondary">未知</span>';
+                    }
+
+                    // 操作按钮 - 只有在可操作且状态为pending时才显示
+                    let actionButtons = '';
+                    if (req.canOperate && req.status === 'pending') {
+                        actionButtons = `
+                            <button class="btn btn-success btn-sm me-1" onclick="processRequest(${requestId}, 'approve')">批准</button>
+                            <button class="btn btn-danger btn-sm" onclick="processRequest(${requestId}, 'reject')">拒绝</button>
+                        `;
+                    } else if (req.status === 'approved') {
+                        actionButtons = '<span class="text-success">已完成</span>';
+                    } else if (req.status === 'rejected') {
+                        actionButtons = '<span class="text-danger">已拒绝</span>';
+                    } else {
+                        actionButtons = '<span class="text-muted">无操作权限</span>';
+                    }
+
+                    const rowHtml = `
+                        <tr class="${req.status === 'approved' ? 'table-success' : req.status === 'rejected' ? 'table-danger' : ''}">
+                            <td>${requestId}</td>
+                            <td>${req.parentTokenId || 'N/A'}</td>
+                            <td class="wallet-address-short" title="${req.applicantAddress || 'N/A'}">
+                                ${req.applicantAddress ? req.applicantAddress.substring(0, 10) + '...' + req.applicantAddress.substring(req.applicantAddress.length - 8) : 'N/A'}
+                            </td>
+                            <td class="text-truncate" style="max-width: 200px;" title="${req.uri || 'N/A'}">
+                                ${req.uri || 'N/A'}
+                            </td>
+                            <td>${statusBadge}</td>
+                            <td>${actionButtons}</td>
+                        </tr>
                     `;
-                } else if (req.status === 'approved') {
-                    actionButtons = '<span class="text-success">已完成</span>';
-                } else if (req.status === 'rejected') {
-                    actionButtons = '<span class="text-danger">已拒绝</span>';
+                    console.log(`第${index + 1}个请求的HTML:`, rowHtml);
+                    return rowHtml;
+                }).join('');
+
+                console.log("生成的完整HTML内容:", htmlContent);
+
+                if (htmlContent.trim() === '') {
+                    console.error("生成的HTML内容为空");
+                    pendingList.innerHTML = '<tr><td colspan="6" class="text-center text-danger">数据处理失败</td></tr>';
                 } else {
-                    actionButtons = '<span class="text-muted">无操作权限</span>';
+                    pendingList.innerHTML = htmlContent;
+                    console.log("HTML内容已设置到表格中");
                 }
 
-                return `
-                    <tr class="${req.status === 'approved' ? 'table-success' : req.status === 'rejected' ? 'table-danger' : ''}">
-                        <td>${req.ID}</td>
-                        <td>${req.parentTokenId}</td>
-                        <td class="wallet-address-short" title="${req.applicantAddress}">
-                            ${req.applicantAddress.substring(0, 10)}...${req.applicantAddress.substring(req.applicantAddress.length - 8)}
-                        </td>
-                        <td class="text-truncate" style="max-width: 200px;" title="${req.uri}">
-                            ${req.uri}
-                        </td>
-                        <td>${statusBadge}</td>
-                        <td>${actionButtons}</td>
-                    </tr>
-                `;
-            }).join('');
+            } catch (htmlError) {
+                console.error("生成HTML时出错:", htmlError);
+                pendingList.innerHTML = '<tr><td colspan="6" class="text-center text-danger">数据处理失败</td></tr>';
+            }
+
         } else {
-            pendingList.innerHTML = '<tr><td colspan="6" class="text-center text-danger">加载失败</td></tr>';
+            console.error("API返回错误或没有请求数据");
+            console.error("API返回错误:", result);
+            pendingList.innerHTML = '<tr><td colspan="6" class="text-center text-danger">加载失败: ' + (result.error || '未知错误') + '</td></tr>';
         }
     } catch (error) {
         console.error('加载待处理申请出错:', error);
-        pendingList.innerHTML = '<tr><td colspan="6" class="text-center text-danger">加载失败</td></tr>';
+        pendingList.innerHTML = '<tr><td colspan="6" class="text-center text-danger">加载失败: ' + error.message + '</td></tr>';
+    }
+}
+
+// 简化的测试函数 - 直接显示测试数据
+function testDisplayRequests() {
+    console.log('测试显示请求数据...');
+    const pendingList = document.getElementById('pending-requests-list');
+    if (!pendingList) {
+        console.error('找不到pending-requests-list元素');
+        alert('找不到请求列表元素！');
+        return;
+    }
+
+    // 创建测试数据
+    const testData = [
+        {
+            ID: 8,
+            id: 8,
+            parentTokenId: "7",
+            applicantAddress: "0x651e0fd49c7dbb5cca8b5be0319d92773443b711",
+            uri: "ipfs://test123",
+            status: "pending",
+            canOperate: true
+        },
+        {
+            ID: 9,
+            id: 9,
+            parentTokenId: "6",
+            applicantAddress: "0xaf97631f96007bbde9c7803b3bea096f4a5a5561",
+            uri: "ipfs://test456",
+            status: "pending",
+            canOperate: true
+        }
+    ];
+
+    console.log('使用测试数据:', testData);
+
+    try {
+        const htmlContent = testData.map((req, index) => {
+            const requestId = req.ID || req.id;
+
+            return `
+                <tr>
+                    <td>${requestId}</td>
+                    <td>${req.parentTokenId}</td>
+                    <td class="wallet-address-short" title="${req.applicantAddress}">
+                        ${req.applicantAddress.substring(0, 10)}...${req.applicantAddress.substring(req.applicantAddress.length - 8)}
+                    </td>
+                    <td class="text-truncate" style="max-width: 200px;" title="${req.uri}">
+                        ${req.uri}
+                    </td>
+                    <td><span class="badge bg-warning">待处理</span></td>
+                    <td>
+                        <button class="btn btn-success btn-sm me-1" onclick="alert('批准请求 ${requestId}')">批准</button>
+                        <button class="btn btn-danger btn-sm" onclick="alert('拒绝请求 ${requestId}')">拒绝</button>
+                    </td>
+                </tr>
+            `;
+        }).join('');
+
+        console.log('生成的测试HTML:', htmlContent);
+        pendingList.innerHTML = htmlContent;
+        console.log('测试数据已显示在表格中');
+        alert('测试数据已显示！检查表格是否有内容。');
+
+    } catch (error) {
+        console.error('测试显示出错:', error);
+        alert('测试显示出错: ' + error.message);
     }
 }
 
 // 处理申请
 async function processRequest(requestId, action) {
     if (!isConnected) return;
+
+    console.log(`处理申请 ID=${requestId}, 操作=${action}`);
 
     showLoading(true);
     try {
@@ -724,33 +960,58 @@ function showError(message) {
 
 // 新增导航状态更新函数
 function updateNavigation(sectionId) {
-    // 移除所有导航项的active状态
-    document.querySelectorAll('.nav-link').forEach(link => {
-        link.classList.remove('active', 'text-white');
-        link.classList.add('text-light');
-    });
+    // 对于主导航，只处理平台级别的切换
+    if (sectionId === 'home' || sectionId === 'nft' || sectionId === 'abe') {
+        // 移除主导航所有活跃状态
+        document.querySelectorAll('nav .navbar-nav .nav-link').forEach(link => {
+            link.classList.remove('active', 'text-white');
+            link.classList.add('text-light');
+        });
 
-    // 根据当前section设置对应导航项为active
-    let navId = '';
-    switch (sectionId) {
-        case 'mint-nft-section':
-            navId = 'nav-mint';
-            break;
-        case 'metadata-section':
-            navId = 'nav-metadata';
-            break;
-        case 'my-nfts-section':
-            navId = 'nav-my-nfts';
-            break;
-        case 'requests-section':
-            navId = 'nav-requests';
-            break;
+        // 设置主页导航为活跃（如果是首页）
+        if (sectionId === 'home') {
+            const homeNav = document.getElementById('nav-home');
+            if (homeNav) {
+                homeNav.classList.add('active', 'text-white');
+                homeNav.classList.remove('text-light');
+            }
+        }
+        return;
     }
 
-    if (navId) {
-        const navItem = document.getElementById(navId);
-        navItem.classList.add('active', 'text-white');
-        navItem.classList.remove('text-light');
+    // 对于NFT平台内的导航
+    if (currentPlatform === 'nft') {
+        // 移除NFT平台内所有导航项的active状态
+        document.querySelectorAll('#nft-platform .navbar-nav .nav-link').forEach(link => {
+            link.classList.remove('active');
+        });
+
+        // 根据当前section设置对应导航项为active
+        let navId = '';
+        switch (sectionId) {
+            case 'all-nfts-section':
+                navId = 'nav-all-nfts';
+                break;
+            case 'mint-nft-section':
+                navId = 'nav-mint';
+                break;
+            case 'metadata-section':
+                navId = 'nav-metadata';
+                break;
+            case 'my-nfts-section':
+                navId = 'nav-my-nfts';
+                break;
+            case 'requests-section':
+                navId = 'nav-requests';
+                break;
+        }
+
+        if (navId) {
+            const navItem = document.getElementById(navId);
+            if (navItem) {
+                navItem.classList.add('active');
+            }
+        }
     }
 }
 
@@ -1226,16 +1487,21 @@ async function loadAllRequests() {
                 const statusBadge = req.status === 'pending' ?
                     '<span class="badge bg-warning">待处理</span>' :
                     req.status === 'approved' ?
-                        '<span class="badge bg-success">已批准</span>' :
+                        '<span class="badge bg-success">已完成</span>' :
                         '<span class="badge bg-danger">已拒绝</span>';
 
+                // 操作按钮 - 只有在可操作且状态为pending时才显示
                 const actionButtons = req.canOperate && req.status === 'pending' ?
                     `<button class="btn btn-success btn-sm me-2" onclick="processRequest(${req.ID}, 'approve')">批准</button>
                      <button class="btn btn-danger btn-sm" onclick="processRequest(${req.ID}, 'reject')">拒绝</button>` :
-                    '<span class="text-muted">无操作权限</span>';
+                    req.status === 'approved' ?
+                        '<span class="text-success">已完成</span>' :
+                        req.status === 'rejected' ?
+                            '<span class="text-danger">已拒绝</span>' :
+                            '<span class="text-muted">无操作权限</span>';
 
                 return `
-                    <div class="card mb-3">
+                    <div class="card mb-3 ${req.status === 'approved' ? 'border-success' : req.status === 'rejected' ? 'border-danger' : ''}">
                         <div class="card-body">
                             <div class="row">
                                 <div class="col-md-6">
@@ -1267,5 +1533,45 @@ async function loadAllRequests() {
     } catch (error) {
         console.error('加载申请记录出错:', error);
         requestsList.innerHTML = '<div class="text-center text-danger"><p>加载申请记录失败</p></div>';
+    }
+}
+
+// 隐藏不相关的界面元素
+function hideIrrelevantSections() {
+    console.log('隐藏不相关的界面元素');
+
+    // 只隐藏DID和VC相关的界面元素，保留NFT和ABE界面
+    const elementsToHide = [
+        'didCreateCard',
+        'did-list-section',
+        'vc-issue-section',
+        'vc-manage-section',
+        'vp-create-section'
+    ];
+
+    // 遍历并隐藏元素
+    elementsToHide.forEach(id => {
+        const element = document.getElementById(id);
+        if (element) {
+            console.log(`隐藏元素: ${id}`);
+            element.classList.add('d-none');
+        } else {
+            console.log(`未找到元素: ${id}`);
+        }
+    });
+
+    // 确保NFT和ABE相关界面可见
+    const nftSections = [
+        'all-nfts-section',
+        'mint-nft-section',
+        'metadata-section',
+        'my-nfts-section',
+        'requests-section'
+    ];
+
+    // 默认显示全部NFT界面
+    const allNftsSection = document.getElementById('all-nfts-section');
+    if (allNftsSection) {
+        allNftsSection.classList.remove('d-none');
     }
 } 

@@ -1,0 +1,42 @@
+// 主题颜色
+$primary: #0d6efd;
+$secondary: #6c757d;
+$success: #198754;
+$info: #0dcaf0;
+$warning: #ffc107;
+$danger: #dc3545;
+$light: #f8f9fa;
+$dark: #212529;
+
+// 平台颜色
+$nft-color: #007bff;
+$abe-color: #28a745;
+$did-color: #fd7e14;
+
+// 字体
+$font-family-base: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+$font-family-monospace: SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+
+// 间距
+$spacer: 1rem;
+
+// 边框
+$border-radius: 0.375rem;
+$border-radius-sm: 0.25rem;
+$border-radius-lg: 0.5rem;
+$border-width: 1px;
+
+// 阴影
+$box-shadow: 0 .5rem 1rem rgba(0, 0, 0, .15);
+$box-shadow-sm: 0 .125rem .25rem rgba(0, 0, 0, .075);
+$box-shadow-lg: 0 1rem 3rem rgba(0, 0, 0, .175);
+
+// 过渡
+$transition-base: all .2s ease-in-out;
+$transition-fade: opacity .15s linear;
+
+// 卡片
+$card-border-radius: $border-radius;
+$card-border-width: $border-width;
+$card-border-color: rgba(0, 0, 0, .125);
+$card-box-shadow: $box-shadow-sm;

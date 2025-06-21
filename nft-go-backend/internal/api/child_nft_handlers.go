@@ -5,14 +5,15 @@ import (
 	"fmt"
 	"math/big"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gin-gonic/gin"
 
-	"nft-go-backend/internal/blockchain"
-	"nft-go-backend/internal/models"
+	"github.com/ABE/nft/nft-go-backend/internal/blockchain"
+	"github.com/ABE/nft/nft-go-backend/internal/models"
 )
 
 // ChildNFTHandlers 子NFT相关处理程序结构体
@@ -30,7 +31,17 @@ func NewChildNFTHandlers(client *blockchain.EthClient) *ChildNFTHandlers {
 // CreateChildNFTHandler 创建子NFT的处理程序
 func (h *ChildNFTHandlers) CreateChildNFTHandler(c *gin.Context) {
 	// 获取验证后的钱包地址
-	walletAddress, _ := h.Client.GetWalletAddressFromContext(c)
+	walletAddressInterface, exists := c.Get("walletAddress")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "未经过身份验证"})
+		return
+	}
+
+	walletAddress, ok := walletAddressInterface.(string)
+	if !ok {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "钱包地址格式错误"})
+		return
+	}
 
 	// 将钱包地址转换为小写
 	walletAddressLower := strings.ToLower(walletAddress)
@@ -74,7 +85,7 @@ func (h *ChildNFTHandlers) CreateChildNFTHandler(c *gin.Context) {
 	recipient := common.HexToAddress(req.Recipient)
 
 	// 创建子NFT
-	txHash, err := h.Client.CreateChildNFT(parentTokenID,walletAddressLower,recipient, req.URI)
+	txHash, err := h.Client.CreateChildNFT(parentTokenID, walletAddressLower, recipient, req.URI)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "创建子NFT失败: " + err.Error()})
 		return
@@ -93,17 +104,36 @@ func (h *ChildNFTHandlers) CreateChildNFTHandler(c *gin.Context) {
 // RequestChildNFTHandler 申请子NFT的处理程序
 func (h *ChildNFTHandlers) RequestChildNFTHandler(c *gin.Context) {
 	// 获取验证后的钱包地址
-	walletAddress, _ := h.Client.GetWalletAddressFromContext(c)
+	walletAddressInterface, exists := c.Get("walletAddress")
+	if !exists {
+		fmt.Printf("无法获取钱包地址，用户未经过身份验证\n")
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "未经过身份验证"})
+		return
+	}
+
+	walletAddress, ok := walletAddressInterface.(string)
+	if !ok {
+		fmt.Printf("钱包地址类型转换失败\n")
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "钱包地址格式错误"})
+		return
+	}
+
+	fmt.Printf("申请子NFT，钱包地址: %s\n", walletAddress)
 
 	// 解析请求体
 	var req models.RequestChildNFTRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
+		fmt.Printf("解析请求体失败: %v\n", err)
 		c.JSON(http.StatusBadRequest, gin.H{"error": "无效的请求体: " + err.Error()})
 		return
 	}
 
+	fmt.Printf("请求内容: ParentTokenId=%s, ApplicantAddress=%s, URI=%s\n",
+		req.ParentTokenId, req.ApplicantAddress, req.URI)
+
 	// 验证签名请求地址与钱包地址匹配
 	if req.Address != walletAddress {
+		fmt.Printf("地址不匹配: req.Address=%s, walletAddress=%s\n", req.Address, walletAddress)
 		c.JSON(http.StatusBadRequest, gin.H{"error": "请求地址与签名地址不匹配"})
 		return
 	}
@@ -111,6 +141,7 @@ func (h *ChildNFTHandlers) RequestChildNFTHandler(c *gin.Context) {
 	// 验证父NFT是否存在
 	parentTokenID, ok := new(big.Int).SetString(req.ParentTokenId, 10)
 	if !ok {
+		fmt.Printf("无效的父token ID: %s\n", req.ParentTokenId)
 		c.JSON(http.StatusBadRequest, gin.H{"error": "无效的父token ID"})
 		return
 	}
@@ -118,9 +149,12 @@ func (h *ChildNFTHandlers) RequestChildNFTHandler(c *gin.Context) {
 	// 验证父NFT所有者
 	owner, _, _, err := h.Client.GetNFTInfo(parentTokenID)
 	if err != nil {
+		fmt.Printf("获取NFT信息失败: %v\n", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "获取NFT信息失败: " + err.Error()})
 		return
 	}
+
+	fmt.Printf("父NFT所有者: %s\n", owner)
 
 	// 保存申请记录到数据库
 	request := models.ChildNFTRequest{
@@ -130,11 +164,15 @@ func (h *ChildNFTHandlers) RequestChildNFTHandler(c *gin.Context) {
 		Status:           "pending",
 	}
 
+	fmt.Printf("保存申请记录到数据库...\n")
 	result := models.DB.Create(&request)
 	if result.Error != nil {
+		fmt.Printf("保存申请记录失败: %v\n", result.Error)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "保存申请记录失败: " + result.Error.Error()})
 		return
 	}
+
+	fmt.Printf("申请记录保存成功，ID: %d\n", request.ID)
 
 	c.JSON(http.StatusOK, gin.H{
 		"message":      "子NFT申请已提交，等待父NFT持有者审批",
@@ -146,34 +184,49 @@ func (h *ChildNFTHandlers) RequestChildNFTHandler(c *gin.Context) {
 // GetAllRequestsHandler 获取所有的子NFT申请记录
 func (h *ChildNFTHandlers) GetAllRequestsHandler(c *gin.Context) {
 	// 获取验证后的钱包地址
-	walletAddress, _ := h.Client.GetWalletAddressFromContext(c)
+	walletAddressInterface, exists := c.Get("walletAddress")
+	if !exists {
+		fmt.Printf("无法获取钱包地址，用户未经过身份验证\n")
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "未经过身份验证"})
+		return
+	}
+
+	walletAddress, ok := walletAddressInterface.(string)
+	if !ok {
+		fmt.Printf("钱包地址类型转换失败\n")
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "钱包地址格式错误"})
+		return
+	}
+
+	fmt.Printf("处理请求列表查询，钱包地址: %s\n", walletAddress)
 
 	// 查询该地址拥有的所有NFT
 	var nfts []models.NFT
 	result := models.DB.Where("owner = ? AND (is_child_nft = ? OR is_child_nft IS NULL)", walletAddress, false).Find(&nfts)
 	if result.Error != nil {
+		fmt.Printf("查询NFT失败: %v\n", result.Error)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "查询NFT失败: " + result.Error.Error()})
 		return
 	}
+	fmt.Printf("找到用户拥有的NFT数量: %d\n", len(nfts))
 
 	// 收集所有tokenId
 	var tokenIds []string
 	for _, nft := range nfts {
 		tokenIds = append(tokenIds, nft.TokenID)
+		fmt.Printf("用户拥有的NFT: TokenID=%s\n", nft.TokenID)
 	}
 
-	// 查询所有申请记录
+	// 查询所有申请记录 - 这里只查询与用户相关的记录
 	var allRequests []models.ChildNFTRequest
-	models.DB.Find(&allRequests)
-
-	// 查询自己申请的子NFT
-	var myRequests []models.ChildNFTRequest
-	models.DB.Where("applicant_address = ?", walletAddress).Find(&myRequests)
+	// 查询自己申请的或者申请自己NFT的记录
+	models.DB.Where("applicant_address = ? OR parent_token_id IN (?)", walletAddress, tokenIds).Find(&allRequests)
+	fmt.Printf("找到与用户相关的申请记录数量: %d\n", len(allRequests))
 
 	// 构建响应数据
 	var responseRequests []models.ChildNFTRequestWithParentInfo
 
-	// 处理别人申请自己NFT的请求
+	// 处理所有申请记录
 	for _, req := range allRequests {
 		// 检查是否是申请自己的NFT
 		isMyNFT := false
@@ -184,30 +237,47 @@ func (h *ChildNFTHandlers) GetAllRequestsHandler(c *gin.Context) {
 			}
 		}
 
-		if isMyNFT {
-			responseReq := models.ChildNFTRequestWithParentInfo{
-				ChildNFTRequest: req,
-				ParentNFTOwner:  walletAddress,
-				CanOperate:      true, // 作为父NFT拥有者可以操作
-			}
-			responseRequests = append(responseRequests, responseReq)
-		}
-	}
+		// 设置RequestId字段为ID的字符串形式
+		req.RequestId = fmt.Sprintf("%d", req.ID)
 
-	// 处理自己申请的子NFT
-	for _, req := range myRequests {
-		// 获取父NFT拥有者信息
-		var parentNFT models.NFT
-		models.DB.Where("token_id = ?", req.ParentTokenId).First(&parentNFT)
+		// 调试输出
+		fmt.Printf("处理请求 ID=%d, RequestId=%s, 状态=%s\n", req.ID, req.RequestId, req.Status)
+
+		var parentNFTOwner string
+		var canOperate bool
+
+		if isMyNFT {
+			// 这是别人申请自己的NFT
+			fmt.Printf("找到申请用户NFT的请求: ID=%d, ParentTokenId=%s, 申请者=%s\n",
+				req.ID, req.ParentTokenId, req.ApplicantAddress)
+			parentNFTOwner = walletAddress
+			canOperate = true // 作为父NFT拥有者可以操作
+		} else {
+			// 这是自己申请的NFT
+			fmt.Printf("找到用户自己的申请: ID=%d, ParentTokenId=%s\n", req.ID, req.ParentTokenId)
+			// 获取父NFT拥有者信息
+			var parentNFT models.NFT
+			models.DB.Where("token_id = ?", req.ParentTokenId).First(&parentNFT)
+			parentNFTOwner = parentNFT.Owner
+			canOperate = false // 作为申请者不能操作，只能查看
+		}
 
 		responseReq := models.ChildNFTRequestWithParentInfo{
 			ChildNFTRequest: req,
-			ParentNFTOwner:  parentNFT.Owner,
-			CanOperate:      false, // 作为申请者不能操作，只能查看
+			ParentNFTOwner:  parentNFTOwner,
+			CanOperate:      canOperate,
 		}
+
+		// 确保ID字段正确设置
+		fmt.Printf("响应请求对象: ID=%d, RequestId=%s, CanOperate=%v\n",
+			responseReq.ID, responseReq.RequestId, responseReq.CanOperate)
+
 		responseRequests = append(responseRequests, responseReq)
 	}
 
+	fmt.Printf("返回给客户端的请求数量: %d\n", len(responseRequests))
+
+	// 始终返回一个数组，即使为空
 	c.JSON(http.StatusOK, gin.H{"requests": responseRequests})
 }
 
@@ -241,21 +311,70 @@ func (h *ChildNFTHandlers) ProcessRequestHandler(c *gin.Context) {
 		return
 	}
 
-	// 解析请求体
-	var req struct {
-		models.SignedRequest
-		RequestID uint   `json:"requestId" binding:"required"`
-		Action    string `json:"action" binding:"required,oneof=approve reject"`
-	}
-	if err := json.Unmarshal(bodyBytes, &req); err != nil {
-		fmt.Printf("解析请求体错误: %v\n", err)
+	// 首先解析请求体为一个通用的map，以便我们可以处理不同类型的requestId
+	var rawRequest map[string]interface{}
+	if err := json.Unmarshal(bodyBytes, &rawRequest); err != nil {
+		fmt.Printf("解析请求体为map错误: %v\n", err)
 		c.JSON(http.StatusBadRequest, gin.H{"error": "无效的请求体: " + err.Error()})
 		return
 	}
-	fmt.Printf("解析后的请求体: %+v\n", req)
+
+	// 提取并转换requestId为uint
+	var requestID uint
+	if reqIDVal, exists := rawRequest["requestId"]; exists {
+		switch v := reqIDVal.(type) {
+		case float64:
+			// JSON数字会被解析为float64
+			requestID = uint(v)
+		case string:
+			// 如果是字符串，尝试转换为uint
+			if id, err := strconv.ParseUint(v, 10, 32); err == nil {
+				requestID = uint(id)
+			} else {
+				fmt.Printf("转换requestId错误: %v\n", err)
+				c.JSON(http.StatusBadRequest, gin.H{"error": "无效的请求ID格式"})
+				return
+			}
+		default:
+			fmt.Printf("不支持的requestId类型: %T\n", v)
+			c.JSON(http.StatusBadRequest, gin.H{"error": "无效的请求ID类型"})
+			return
+		}
+	} else {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "缺少请求ID"})
+		return
+	}
+
+	fmt.Printf("解析后的请求ID: %d\n", requestID)
+
+	// 提取action字段
+	action, ok := rawRequest["action"].(string)
+	if !ok || (action != "approve" && action != "reject") {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "无效的action值，必须是approve或reject"})
+		return
+	}
+
+	// 提取签名相关字段
+	address, ok := rawRequest["address"].(string)
+	if !ok || address == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "缺少或无效的address字段"})
+		return
+	}
+
+	signature, ok := rawRequest["signature"].(string)
+	if !ok || signature == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "缺少或无效的signature字段"})
+		return
+	}
+
+	message, ok := rawRequest["message"].(string)
+	if !ok || message == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "缺少或无效的message字段"})
+		return
+	}
 
 	// 验证签名请求地址与钱包地址匹配（转换为小写后比较）
-	reqAddress := normalizeAddress(req.Address)
+	reqAddress := normalizeAddress(address)
 	if reqAddress != normalizedWallet {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "请求地址与签名地址不匹配"})
 		return
@@ -263,7 +382,7 @@ func (h *ChildNFTHandlers) ProcessRequestHandler(c *gin.Context) {
 
 	// 查询申请记录
 	var request models.ChildNFTRequest
-	result := models.DB.First(&request, req.RequestID)
+	result := models.DB.First(&request, requestID)
 	if result.Error != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "申请记录不存在"})
 		return
@@ -288,10 +407,10 @@ func (h *ChildNFTHandlers) ProcessRequestHandler(c *gin.Context) {
 		return
 	}
 
-	if req.Action == "approve" {
+	if action == "approve" {
 		// 批准申请，创建子NFT
 		recipient := common.HexToAddress(request.ApplicantAddress)
-		txHash, err := h.Client.CreateChildNFT(parentTokenID,walletAddressInterface.(string), recipient, request.URI)
+		txHash, err := h.Client.CreateChildNFT(parentTokenID, walletAddress, recipient, request.URI)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "创建子NFT失败: " + err.Error()})
 			return

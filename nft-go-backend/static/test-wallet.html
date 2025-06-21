@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>钱包连接测试</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .wallet-status {
+            margin: 20px 0;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+        }
+        .btn {
+            padding: 10px 20px;
+            margin: 5px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .btn-connect {
+            background: #ff9500;
+            color: white;
+        }
+        .btn-disconnect {
+            background: #dc3545;
+            color: white;
+        }
+        .address-display {
+            font-family: monospace;
+            background: #f5f5f5;
+            padding: 5px 10px;
+            border-radius: 4px;
+            margin: 0 10px;
+        }
+        .debug-info {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+            font-family: monospace;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <h1>钱包连接测试页面</h1>
+    
+    <div class="wallet-status">
+        <!-- 未连接状态 -->
+        <div id="wallet-disconnected">
+            <span>钱包状态: 未连接</span>
+            <button id="connect-wallet" class="btn btn-connect">连接钱包</button>
+        </div>
+        
+        <!-- 已连接状态 -->
+        <div id="wallet-connected" style="display: none;">
+            <span>钱包状态: 已连接</span>
+            <span id="wallet-address" class="address-display">未连接</span>
+            <button id="disconnect-wallet" class="btn btn-disconnect">断开连接</button>
+        </div>
+    </div>
+    
+    <div class="debug-info">
+        <h3>调试信息:</h3>
+        <div id="debug-output">等待操作...</div>
+    </div>
+    
+    <script>
+        // 全局变量
+        let currentAccount = null;
+        let isWalletConnected = false;
+        
+        // 调试输出函数
+        function debugLog(message) {
+            const debugOutput = document.getElementById('debug-output');
+            const timestamp = new Date().toLocaleTimeString();
+            debugOutput.innerHTML += `<br>[${timestamp}] ${message}`;
+            console.log(message);
+        }
+        
+        // 缩短地址显示
+        function shortenAddress(address) {
+            if (!address || typeof address !== 'string' || address.length < 10) {
+                return '未连接';
+            }
+            return address.substring(0, 6) + '...' + address.substring(address.length - 4);
+        }
+        
+        // 更新钱包UI状态
+        function updateWalletUI(account) {
+            debugLog(`更新钱包UI状态，账户: ${account}`);
+            
+            const disconnectedDiv = document.getElementById('wallet-disconnected');
+            const connectedDiv = document.getElementById('wallet-connected');
+            const walletAddressElement = document.getElementById('wallet-address');
+
+            if (account && disconnectedDiv && connectedDiv && walletAddressElement) {
+                // 显示已连接状态
+                debugLog('显示已连接状态');
+                disconnectedDiv.style.display = 'none';
+                connectedDiv.style.display = 'block';
+                walletAddressElement.textContent = shortenAddress(account);
+            } else if (disconnectedDiv && connectedDiv) {
+                // 显示未连接状态
+                debugLog('显示未连接状态');
+                disconnectedDiv.style.display = 'block';
+                connectedDiv.style.display = 'none';
+                if (walletAddressElement) {
+                    walletAddressElement.textContent = '未连接';
+                }
+            }
+        }
+        
+        // 连接钱包
+        async function connectWallet() {
+            debugLog('开始连接钱包...');
+            
+            if (window.ethereum) {
+                try {
+                    debugLog('检测到MetaMask，请求账户访问...');
+                    const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+                    const account = accounts[0];
+                    
+                    debugLog(`获取到账户: ${account}`);
+                    
+                    if (account) {
+                        currentAccount = account;
+                        isWalletConnected = true;
+                        updateWalletUI(account);
+                        
+                        // 保存连接状态到localStorage
+                        localStorage.setItem('walletConnected', 'true');
+                        localStorage.setItem('walletAccount', account);
+                        
+                        debugLog('钱包连接成功，状态已保存');
+                    }
+
+                    return account;
+                } catch (error) {
+                    debugLog(`连接钱包失败: ${error.message}`);
+                }
+            } else {
+                debugLog('未检测到MetaMask');
+                alert('请安装MetaMask钱包');
+            }
+            return null;
+        }
+        
+        // 断开钱包连接
+        function disconnectWallet() {
+            debugLog('断开钱包连接');
+            currentAccount = null;
+            isWalletConnected = false;
+            updateWalletUI(null);
+            
+            // 清除localStorage
+            localStorage.removeItem('walletConnected');
+            localStorage.removeItem('walletAccount');
+            
+            debugLog('钱包已断开连接');
+        }
+        
+        // 检查钱包连接状态
+        async function checkWalletConnection() {
+            debugLog('检查钱包连接状态...');
+            
+            if (window.ethereum) {
+                try {
+                    const accounts = await window.ethereum.request({ method: 'eth_accounts' });
+                    const savedAccount = localStorage.getItem('walletAccount');
+                    const wasConnected = localStorage.getItem('walletConnected') === 'true';
+                    
+                    debugLog(`当前账户: ${accounts[0] || '无'}`);
+                    debugLog(`保存的账户: ${savedAccount || '无'}`);
+                    debugLog(`之前是否连接: ${wasConnected}`);
+                    
+                    if (accounts.length > 0 && wasConnected && savedAccount === accounts[0]) {
+                        currentAccount = accounts[0];
+                        isWalletConnected = true;
+                        updateWalletUI(accounts[0]);
+                        debugLog('自动恢复钱包连接');
+                    } else if (savedAccount && !accounts.includes(savedAccount)) {
+                        // 清除过期的连接状态
+                        localStorage.removeItem('walletConnected');
+                        localStorage.removeItem('walletAccount');
+                        debugLog('清除过期的连接状态');
+                    }
+                } catch (error) {
+                    debugLog(`检查钱包连接失败: ${error.message}`);
+                }
+            } else {
+                debugLog('未检测到MetaMask');
+            }
+        }
+        
+        // 页面加载完成后初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            debugLog('页面加载完成，开始初始化...');
+            
+            // 绑定事件监听器
+            const connectBtn = document.getElementById('connect-wallet');
+            const disconnectBtn = document.getElementById('disconnect-wallet');
+            
+            if (connectBtn) {
+                connectBtn.addEventListener('click', connectWallet);
+                debugLog('连接钱包按钮事件已绑定');
+            }
+            
+            if (disconnectBtn) {
+                disconnectBtn.addEventListener('click', disconnectWallet);
+                debugLog('断开连接按钮事件已绑定');
+            }
+            
+            // 检查钱包连接状态
+            checkWalletConnection();
+            
+            // 监听MetaMask账户变更
+            if (window.ethereum) {
+                window.ethereum.on('accountsChanged', function (accounts) {
+                    debugLog(`账户变更: ${accounts[0] || '无'}`);
+                    if (accounts.length === 0) {
+                        disconnectWallet();
+                    } else if (accounts[0] !== currentAccount) {
+                        currentAccount = accounts[0];
+                        updateWalletUI(accounts[0]);
+                        localStorage.setItem('walletAccount', accounts[0]);
+                    }
+                });
+            }
+        });
+    </script>
+</body>
+</html>

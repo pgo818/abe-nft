@@ -39,7 +39,7 @@ func LoadConfig() (*Config, error) {
 		ChildNFTAddress: getEnv("CHILD_NFT_ADDRESS", "0x38C5f113b716e21C57cc24bDEE237cEd28bA866F"),
 		PrivateKey:      getEnv("PRIVATE_KEY", "63435add31c605dfa2ee262dfb1dd019c985c881196309c4d194d3574a0c3fc1"),
 		ChainID:         getEnvAsInt64("CHAIN_ID", 1337),
-		Port:            getEnv("PORT", "9090"),
+		Port:            getEnv("PORT", "8080"),
 		// 数据库配置
 		DBUser:     getEnv("DB_USER", "root"),
 		DBPassword: getEnv("DB_PASSWORD", "123456"),

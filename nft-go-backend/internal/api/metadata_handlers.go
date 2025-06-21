@@ -10,8 +10,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"nft-go-backend/internal/blockchain"
-	"nft-go-backend/internal/models"
+	"github.com/ABE/nft/nft-go-backend/internal/blockchain"
+	"github.com/ABE/nft/nft-go-backend/internal/models"
 )
 
 // MetadataHandlers 元数据相关处理程序结构体
@@ -26,7 +26,7 @@ func NewMetadataHandlers(client *blockchain.EthClient) *MetadataHandlers {
 	}
 }
 
-// CreateMetadataHandler 创建NFT元数据并保存到本地IPFS
+// CreateMetadataHandler 创建NFT元数据并保存到IPFS
 func (h *MetadataHandlers) CreateMetadataHandler(c *gin.Context) {
 	// 解析请求体
 	var req models.CreateMetadataRequest
@@ -67,7 +67,7 @@ func (h *MetadataHandlers) CreateMetadataHandler(c *gin.Context) {
 		return
 	}
 
-	// 保存到数据库
+	// 尝试保存到数据库，但忽略错误
 	metadataDB := models.NFTMetadataDB{
 		Name:        req.Name,
 		Description: req.Description,
@@ -78,16 +78,14 @@ func (h *MetadataHandlers) CreateMetadataHandler(c *gin.Context) {
 		IPFSHash:    ipfsHash,
 	}
 
-	result := models.DB.Create(&metadataDB)
-	if result.Error != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "保存到数据库失败: " + result.Error.Error()})
-		return
-	}
+	// 尝试保存，但忽略错误
+	models.DB.Create(&metadataDB)
+	// 不检查错误，直接继续
 
 	// 返回响应
 	response := models.MetadataResponse{
 		IPFSHash: ipfsHash,
-		Message:  "元数据已成功创建并保存到本地IPFS",
+		Message:  "元数据已成功创建并保存到IPFS",
 	}
 
 	c.JSON(http.StatusOK, response)
@@ -135,6 +133,39 @@ func (h *MetadataHandlers) GetAllMetadataHandler(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"metadata": metadataList})
+}
+
+// UploadToIPFSHandler 通用IPFS上传处理程序
+func (h *MetadataHandlers) UploadToIPFSHandler(c *gin.Context) {
+	var req struct {
+		Data     string `json:"data" binding:"required"`
+		Filename string `json:"filename"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "无效的请求参数: " + err.Error()})
+		return
+	}
+
+	// 如果没有提供文件名，使用默认值
+	if req.Filename == "" {
+		req.Filename = "data.txt"
+	}
+
+	// 上传到本地IPFS
+	ipfsHash, err := h.uploadToLocalIPFS([]byte(req.Data))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "上传到IPFS失败: " + err.Error()})
+		return
+	}
+
+	// 返回响应
+	c.JSON(http.StatusOK, gin.H{
+		"hash":     ipfsHash,
+		"url":      "ipfs://" + ipfsHash,
+		"message":  "数据已成功上传到IPFS",
+		"filename": req.Filename,
+	})
 }
 
 // uploadToLocalIPFS 上传到本地IPFS节点

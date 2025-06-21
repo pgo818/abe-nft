@@ -4,13 +4,124 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ .title }} - NFT管理平台</title>
+    <title>{{ .title }} - NFT+ABE集成管理平台</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
     <link rel="stylesheet" href="/static/css/style.css">
     <style>
-        .wallet-address-short {
-            font-family: 'Courier New', monospace;
-            font-size: 0.9em;
+        .platform-switcher {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 2rem 0;
+            margin-bottom: 2rem;
+        }
+
+        .platform-card {
+            transition: all 0.3s ease;
+            cursor: pointer;
+            border: none;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+        }
+
+        .platform-card:hover {
+            transform: translateY(-10px);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+        }
+
+        .platform-icon {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+        }
+
+        .nft-platform .platform-icon {
+            color: #007bff;
+        }
+
+        .abe-platform .platform-icon {
+            color: #28a745;
+        }
+
+        .did-platform .platform-icon {
+            color: #fd7e14;
+        }
+
+        .platform-section {
+            display: none;
+        }
+
+        .platform-section.active {
+            display: block;
+            animation: fadeIn 0.5s ease-in;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .breadcrumb-section {
+            background: #f8f9fa;
+            padding: 1rem 0;
+            border-bottom: 1px solid #e9ecef;
+        }
+
+        .abe-form-card {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+        }
+
+        .abe-form-card .form-control {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            color: white;
+        }
+
+        .abe-form-card .form-control:focus {
+            background: rgba(255, 255, 255, 0.2);
+            border-color: rgba(255, 255, 255, 0.5);
+            color: white;
+            box-shadow: 0 0 0 0.2rem rgba(255, 255, 255, 0.25);
+        }
+
+        .abe-form-card .form-control::placeholder {
+            color: rgba(255, 255, 255, 0.7);
+        }
+
+        .abe-result-card {
+            background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%);
+        }
+
+        .did-form-card {
+            background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+            color: white;
+        }
+
+        .did-form-card .form-control {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            color: white;
+        }
+
+        .did-form-card .form-control:focus {
+            background: rgba(255, 255, 255, 0.2);
+            border-color: rgba(255, 255, 255, 0.5);
+            color: white;
+            box-shadow: 0 0 0 0.2rem rgba(255, 255, 255, 0.25);
+        }
+
+        .did-form-card .form-control::placeholder {
+            color: rgba(255, 255, 255, 0.7);
+        }
+
+        .did-result-card {
+            background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%);
         }
 
         .table-responsive {
@@ -28,12 +139,9 @@
             background-color: rgba(0, 0, 0, 0.075);
         }
 
-        .table-success {
-            background-color: rgba(25, 135, 84, 0.1);
-        }
-
-        .table-danger {
-            background-color: rgba(220, 53, 69, 0.1);
+        .wallet-address-short {
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
         }
 
         .text-truncate {
@@ -41,232 +149,1160 @@
             overflow: hidden;
             text-overflow: ellipsis;
         }
+
+        .did-string {
+            font-family: 'Courier New', monospace;
+            font-size: 0.85em;
+            word-break: break-all;
+        }
+
+        .credential-id {
+            font-family: 'Courier New', monospace;
+            font-size: 0.85em;
+        }
+
+        .table-success {
+            background-color: rgba(25, 135, 84, 0.1);
+        }
+
+        .table-danger {
+            background-color: rgba(220, 53, 69, 0.1);
+        }
     </style>
 </head>
 
 <body>
-    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+    <!-- 主导航栏 -->
+    <nav class="navbar navbar-expand-lg navbar-light bg-light">
         <div class="container">
-            <a class="navbar-brand" href="/">NFT平台</a>
+            <a class="navbar-brand" href="/">
+                <i class="bi bi-shield-lock me-2"></i>
+                NFT+ABE集成平台
+            </a>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
                 <span class="navbar-toggler-icon"></span>
             </button>
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav me-auto">
                     <li class="nav-item">
-                        <a class="nav-link" href="#" id="nav-mint">铸造NFT</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="#" id="nav-metadata">创建元数据</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="#" id="nav-my-nfts">我的NFT</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="#" id="nav-requests">申请管理</a>
+                        <a class="nav-link" href="#" id="nav-home">
+                            <i class="bi bi-house me-1"></i>首页
+                        </a>
                     </li>
                 </ul>
                 <div class="d-flex">
-                    <button id="connect-wallet" class="btn btn-outline-light">连接钱包</button>
-                    <div id="wallet-info" class="text-light ms-3 d-none d-flex align-items-center">
+                    <button id="connect-wallet" class="btn btn-outline-dark">
+                        <i class="bi bi-wallet2 me-1"></i>连接钱包
+                    </button>
+                    <div id="wallet-info" class="text-dark ms-3 d-none d-flex align-items-center">
                         <span id="wallet-address" class="me-2"></span>
-                        <button id="disconnect-wallet" class="btn btn-outline-light btn-sm">断开</button>
+                        <button id="disconnect-wallet" class="btn btn-outline-dark btn-sm">断开</button>
                     </div>
                 </div>
             </div>
         </div>
     </nav>
 
-    <div class="container mt-5">
+    <div class="container-fluid">
+        <!-- 平台选择器 -->
+        <div id="platform-selector" class="platform-switcher">
+            <div class="container">
+                <div class="text-center text-white mb-4">
+                    <h1><i class="bi bi-layers me-3"></i>选择管理平台</h1>
+                    <p class="lead">请选择您要使用的管理平台</p>
+                </div>
+                <div class="row justify-content-center">
+                    <div class="col-md-5 mb-4">
+                        <div class="card platform-card nft-platform h-100" onclick="showPlatform('nft')">
+                            <div class="card-body text-center">
+                                <i class="bi bi-collection platform-icon"></i>
+                                <h3>NFT管理平台</h3>
+                                <p class="text-muted">管理您的NFT资产，包括铸造、转移、元数据管理等功能</p>
+                                <div class="mt-3">
+                                    <span class="badge bg-primary me-2">铸造NFT</span>
+                                    <span class="badge bg-info me-2">元数据管理</span>
+                                    <span class="badge bg-warning">子NFT</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-5 mb-4">
+                        <div class="card platform-card abe-platform h-100" onclick="showPlatform('abe')">
+                            <div class="card-body text-center">
+                                <i class="bi bi-shield-lock platform-icon"></i>
+                                <h3>ABE加密管理</h3>
+                                <p class="text-muted">基于属性的加密系统，提供细粒度的访问控制和数据保护</p>
+                                <div class="mt-3">
+                                    <span class="badge bg-success me-2">属性加密</span>
+                                    <span class="badge bg-secondary me-2">密钥管理</span>
+                                    <span class="badge bg-danger">访问控制</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-5 mb-4">
+                        <div class="card platform-card did-platform h-100" onclick="showPlatform('did')">
+                            <div class="card-body text-center">
+                                <i class="bi bi-person-circle platform-icon"></i>
+                                <h3>DID和VC管理</h3>
+                                <p class="text-muted">管理您的DID和VC，包括创建、验证、管理等功能</p>
+                                <div class="mt-3">
+                                    <span class="badge bg-info me-2">DID创建</span>
+                                    <span class="badge bg-warning">VC管理</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 面包屑导航 -->
+        <div id="breadcrumb-section" class="breadcrumb-section d-none">
+            <div class="container">
+                <nav aria-label="breadcrumb">
+                    <ol class="breadcrumb mb-0">
+                        <li class="breadcrumb-item">
+                            <a href="#" onclick="showHome()">
+                                <i class="bi bi-house"></i> 首页
+                            </a>
+                        </li>
+                        <li class="breadcrumb-item active" id="current-platform">平台</li>
+                    </ol>
+                </nav>
+            </div>
+        </div>
+
         <!-- 连接钱包提示 -->
-        <div id="connect-wallet-prompt" class="alert alert-info text-center">
+        <div id="connect-wallet-prompt" class="alert alert-info text-center d-none">
             <h4>请先连接MetaMask钱包</h4>
-            <p>要使用NFT平台功能，您需要先连接MetaMask钱包</p>
+            <p>要使用平台功能，您需要先连接MetaMask钱包</p>
             <button id="connect-wallet-btn" class="btn btn-primary">连接钱包</button>
         </div>
-        <!-- 在铸造NFT表单之前添加 -->
-        <div id="all-nfts-section" class="section">
-            <h2>所有NFT</h2>
-            <div class="row" id="all-nfts-container">
-                <!-- 所有NFT将动态加载到这里 -->
+
+        <!-- NFT管理平台 -->
+        <div id="nft-platform" class="platform-section container">
+            <!-- NFT平台导航 -->
+            <nav class="navbar navbar-expand-lg navbar-light bg-light mb-4">
+                <div class="container-fluid">
+                    <span class="navbar-brand">
+                        <i class="bi bi-collection me-2"></i>NFT管理
+                    </span>
+                    <button class="navbar-toggler" type="button" data-bs-toggle="collapse"
+                        data-bs-target="#nftNavbarNav" aria-controls="nftNavbarNav" aria-expanded="false"
+                        aria-label="Toggle navigation">
+                        <span class="navbar-toggler-icon"></span>
+                    </button>
+                    <div class="collapse navbar-collapse" id="nftNavbarNav">
+                        <div class="navbar-nav">
+                            <a class="nav-link" href="#" id="nav-all-nfts">
+                                <i class="bi bi-grid me-1"></i>所有NFT
+                            </a>
+                            <a class="nav-link" href="#" id="nav-mint">
+                                <i class="bi bi-plus-circle me-1"></i>铸造NFT
+                            </a>
+                            <a class="nav-link" href="#" id="nav-metadata">
+                                <i class="bi bi-file-text me-1"></i>创建元数据
+                            </a>
+                            <a class="nav-link" href="#" id="nav-my-nfts">
+                                <i class="bi bi-wallet me-1"></i>我的NFT
+                            </a>
+                            <a class="nav-link" href="#" id="nav-requests">
+                                <i class="bi bi-list-check me-1"></i>申请管理
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </nav>
+
+            <!-- 在铸造NFT表单之前添加 -->
+            <div id="all-nfts-section" class="section">
+                <h2><i class="bi bi-grid me-2"></i>所有NFT</h2>
+                <div class="row" id="all-nfts-container">
+                    <!-- 所有NFT将动态加载到这里 -->
+                </div>
+            </div>
+
+            <!-- 铸造NFT表单 -->
+            <div id="mint-nft-section" class="section d-none">
+                <h2><i class="bi bi-plus-circle me-2"></i>铸造新NFT</h2>
+                <div class="card">
+                    <div class="card-body">
+                        <form id="mint-form">
+                            <div class="mb-3">
+                                <label for="nft-uri" class="form-label">NFT URI (IPFS或HTTP)</label>
+                                <input type="text" class="form-control" id="nft-uri" placeholder="ipfs://..." required>
+                                <div class="form-text">指向NFT元数据的URI</div>
+                            </div>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-plus-circle me-1"></i>铸造NFT
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 创建NFT元数据表单 -->
+            <div id="metadata-section" class="section d-none">
+                <h2><i class="bi bi-file-text me-2"></i>创建NFT元数据</h2>
+                <div class="card">
+                    <div class="card-body">
+                        <form id="metadata-form">
+                            <div class="mb-3">
+                                <label for="metadata-name" class="form-label">名称</label>
+                                <input type="text" class="form-control" id="metadata-name" placeholder="输入NFT名称"
+                                    required>
+                            </div>
+                            <div class="mb-3">
+                                <label for="metadata-description" class="form-label">描述</label>
+                                <textarea class="form-control" id="metadata-description" rows="3" placeholder="输入NFT描述"
+                                    required></textarea>
+                            </div>
+                            <div class="mb-3">
+                                <label for="metadata-external-url" class="form-label">外部链接</label>
+                                <input type="url" class="form-control" id="metadata-external-url"
+                                    placeholder="https://example.com">
+                            </div>
+                            <div class="mb-3">
+                                <label for="metadata-image" class="form-label">图像链接</label>
+                                <input type="url" class="form-control" id="metadata-image"
+                                    placeholder="https://example.com/image.jpg 或 ipfs://..." required>
+                            </div>
+                            <div class="mb-3">
+                                <label for="metadata-policy" class="form-label">策略</label>
+                                <input type="text" class="form-control" id="metadata-policy" placeholder="输入策略值"
+                                    required>
+                            </div>
+                            <div class="mb-3">
+                                <label for="metadata-ciphertext" class="form-label">加密密文</label>
+                                <input type="text" class="form-control" id="metadata-ciphertext" placeholder="输入加密密文"
+                                    required>
+                            </div>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-upload me-1"></i>创建元数据并上传到IPFS
+                            </button>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- 元数据预览 -->
+                <div class="card mt-4">
+                    <div class="card-header">
+                        <h5><i class="bi bi-eye me-2"></i>元数据预览</h5>
+                    </div>
+                    <div class="card-body">
+                        <pre id="metadata-preview" class="bg-light p-3"></pre>
+                    </div>
+                </div>
+
+                <!-- 已创建的元数据列表 -->
+                <div class="card mt-4">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5><i class="bi bi-list me-2"></i>已创建的元数据</h5>
+                        <button class="btn btn-sm btn-outline-primary" onclick="loadMetadataList()">
+                            <i class="bi bi-arrow-clockwise me-1"></i>刷新
+                        </button>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table">
+                                <thead>
+                                    <tr>
+                                        <th>名称</th>
+                                        <th>描述</th>
+                                        <th>IPFS哈希</th>
+                                        <th>创建时间</th>
+                                        <th>操作</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="metadata-list">
+                                    <!-- 元数据列表将动态加载到这里 -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 我的NFT部分 -->
+            <div id="my-nfts-section" class="section d-none">
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h2><i class="bi bi-wallet me-2"></i>我的NFT</h2>
+                    <button class="btn btn-info" onclick="showRequestsModal()">
+                        <i class="bi bi-list-check me-1"></i>申请管理
+                    </button>
+                </div>
+                <div id="my-nfts-list" class="row">
+                    <!-- NFT卡片将在这里动态加载 -->
+                </div>
+            </div>
+
+            <!-- 申请管理 -->
+            <div id="requests-section" class="section d-none">
+                <h2>NFT申请管理</h2>
+                <ul class="nav nav-tabs" id="requestTabs">
+                    <li class="nav-item">
+                        <a class="nav-link active" data-bs-toggle="tab" href="#pending-requests">待处理申请</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" data-bs-toggle="tab" href="#my-requests">我的申请</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" data-bs-toggle="tab" href="#new-request">创建申请</a>
+                    </li>
+                </ul>
+                <div class="tab-content mt-3">
+                    <div class="tab-pane fade show active" id="pending-requests">
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th style="width: 5%;">ID</th>
+                                        <th style="width: 10%;">父NFT ID</th>
+                                        <th style="width: 25%;">申请者地址</th>
+                                        <th style="width: 30%;">URI</th>
+                                        <th style="width: 10%;">状态</th>
+                                        <th style="width: 20%;">操作</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="pending-requests-list">
+                                    <!-- 待处理申请将动态加载到这里 -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div class="tab-pane fade" id="my-requests">
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th style="width: 5%;">ID</th>
+                                        <th style="width: 15%;">父NFT ID</th>
+                                        <th style="width: 25%;">申请者地址</th>
+                                        <th style="width: 35%;">URI</th>
+                                        <th style="width: 20%;">状态</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="my-requests-list">
+                                    <!-- 我的申请将动态加载到这里 -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div class="tab-pane fade" id="new-request">
+                        <div class="card">
+                            <div class="card-body">
+                                <form id="request-form">
+                                    <div class="mb-3">
+                                        <label for="parent-token-id" class="form-label">父NFT ID</label>
+                                        <input type="text" class="form-control" id="parent-token-id" required>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="request-uri" class="form-label">NFT URI</label>
+                                        <input type="text" class="form-control" id="request-uri"
+                                            placeholder="ipfs://..." required>
+                                    </div>
+                                    <button type="submit" class="btn btn-primary">提交申请</button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
-        <!-- 铸造NFT表单 -->
-        <div id="mint-nft-section" class="section d-none">
-            <h2>铸造新NFT</h2>
-            <div class="card">
-                <div class="card-body">
-                    <form id="mint-form">
-                        <div class="mb-3">
-                            <label for="nft-uri" class="form-label">NFT URI (IPFS或HTTP)</label>
-                            <input type="text" class="form-control" id="nft-uri" placeholder="ipfs://..." required>
-                            <div class="form-text">指向NFT元数据的URI</div>
+
+        <!-- ABE管理平台 -->
+        <div id="abe-platform" class="platform-section container">
+            <!-- ABE平台导航 -->
+            <nav class="navbar navbar-expand-lg navbar-light bg-light mb-4">
+                <div class="container-fluid">
+                    <span class="navbar-brand">
+                        <i class="bi bi-shield-lock me-2"></i>ABE加密管理
+                    </span>
+                    <button class="navbar-toggler" type="button" data-bs-toggle="collapse"
+                        data-bs-target="#abeNavbarNav" aria-controls="abeNavbarNav" aria-expanded="false"
+                        aria-label="Toggle navigation">
+                        <span class="navbar-toggler-icon"></span>
+                    </button>
+                    <div class="collapse navbar-collapse" id="abeNavbarNav">
+                        <div class="navbar-nav">
+                            <a class="nav-link" href="#" id="nav-abe-setup">
+                                <i class="bi bi-gear me-1"></i>系统初始化
+                            </a>
+                            <a class="nav-link" href="#" id="nav-abe-upload">
+                                <i class="bi bi-cloud-upload me-1"></i>上传医疗数据
+                            </a>
+                            <a class="nav-link" href="#" id="nav-abe-encrypt">
+                                <i class="bi bi-lock me-1"></i>数据加密
+                            </a>
+                            <a class="nav-link" href="#" id="nav-abe-decrypt">
+                                <i class="bi bi-unlock me-1"></i>数据解密
+                            </a>
+                            <a class="nav-link" href="#" id="nav-abe-keygen">
+                                <i class="bi bi-key me-1"></i>密钥生成
+                            </a>
+                            <a class="nav-link" href="#" id="nav-abe-logs">
+                                <i class="bi bi-journal-text me-1"></i>操作日志
+                            </a>
                         </div>
-                        <button type="submit" class="btn btn-primary">铸造NFT</button>
+                    </div>
+                </div>
+            </nav>
+
+            <!-- ABE系统初始化 -->
+            <div id="abe-setup-section" class="section">
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="card abe-form-card">
+                            <div class="card-header">
+                                <h5><i class="bi bi-gear me-2"></i>ABE系统初始化</h5>
+                            </div>
+                            <div class="card-body">
+                                <form id="abe-setup-form">
+                                    <div class="mb-3">
+                                        <label for="abe-attributes" class="form-label">属性列表 (每行一个)</label>
+                                        <textarea class="form-control" id="abe-attributes" rows="5"
+                                            placeholder="例如：&#10;age:18-25&#10;department:IT&#10;role:manager&#10;clearance:level3"
+                                            required></textarea>
+                                        <div class="form-text text-light">每行输入一个属性，用于定义访问控制策略</div>
+                                    </div>
+                                    <button type="submit" class="btn btn-light">
+                                        <i class="bi bi-gear me-1"></i>初始化系统
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="card abe-result-card">
+                            <div class="card-header">
+                                <h5><i class="bi bi-info-circle me-2"></i>系统信息</h5>
+                            </div>
+                            <div class="card-body">
+                                <div id="abe-setup-result">
+                                    <p>请先初始化ABE系统以生成主密钥和公钥</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 医疗数据上传 -->
+            <div id="abe-upload-section" class="section d-none">
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="card abe-form-card">
+                            <div class="card-header">
+                                <h5><i class="bi bi-cloud-upload me-2"></i>上传医疗数据到IPFS</h5>
+                            </div>
+                            <div class="card-body">
+                                <form id="abe-upload-form">
+                                    <div class="mb-3">
+                                        <label for="medical-data-text" class="form-label">医疗数据内容</label>
+                                        <textarea class="form-control" id="medical-data-text" rows="6"
+                                            placeholder="输入医疗数据内容，例如：&#10;患者姓名：张三&#10;诊断结果：轻度感冒&#10;处方药物：阿莫西林&#10;医生建议：多休息，多喝水"
+                                            required></textarea>
+                                        <div class="form-text text-light">输入要上传到IPFS的医疗数据</div>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="medical-data-file" class="form-label">或选择文件上传</label>
+                                        <input type="file" class="form-control" id="medical-data-file"
+                                            accept=".txt,.json,.pdf,.doc,.docx">
+                                        <div class="form-text text-light">支持文本、JSON、PDF等格式</div>
+                                    </div>
+                                    <button type="submit" class="btn btn-light">
+                                        <i class="bi bi-cloud-upload me-1"></i>上传到IPFS
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="card abe-result-card">
+                            <div class="card-header">
+                                <h5><i class="bi bi-file-earmark-check me-2"></i>上传结果</h5>
+                            </div>
+                            <div class="card-body">
+                                <div id="abe-upload-result">
+                                    <p>请选择要上传的医疗数据</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ABE密钥生成 -->
+            <div id="abe-keygen-section" class="section d-none">
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="card abe-form-card">
+                            <div class="card-header">
+                                <h5><i class="bi bi-key me-2"></i>生成用户属性密钥</h5>
+                            </div>
+                            <div class="card-body">
+                                <form id="abe-keygen-form">
+                                    <div class="mb-3">
+                                        <label for="keygen-attributes" class="form-label">用户属性 (每行一个)</label>
+                                        <textarea class="form-control" id="keygen-attributes" rows="4"
+                                            placeholder="例如：&#10;doctor&#10;hospital:301&#10;department:cardiology&#10;role:senior"
+                                            required></textarea>
+                                        <div class="form-text text-light">输入用户具有的医疗相关属性</div>
+                                    </div>
+                                    <button type="submit" class="btn btn-light">
+                                        <i class="bi bi-key me-1"></i>生成属性密钥
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="card abe-result-card">
+                            <div class="card-header">
+                                <h5><i class="bi bi-shield-check me-2"></i>生成的属性密钥</h5>
+                            </div>
+                            <div class="card-body">
+                                <div id="abe-keygen-result">
+                                    <p>请填写表单并生成属性密钥</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ABE加密 -->
+            <div id="abe-encrypt-section" class="section d-none">
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="card abe-form-card">
+                            <div class="card-header">
+                                <h5><i class="bi bi-lock me-2"></i>加密数据</h5>
+                            </div>
+                            <div class="card-body">
+                                <form id="abe-encrypt-form">
+                                    <div class="mb-3">
+                                        <label for="encrypt-message" class="form-label">要加密的数据</label>
+                                        <textarea class="form-control" id="encrypt-message" rows="3"
+                                            placeholder="直接输入数据，或点击下方按钮使用IPFS哈希" required></textarea>
+                                        <button type="button" class="btn btn-sm btn-outline-light mt-2"
+                                            onclick="useLatestIPFSHash()">
+                                            <i class="bi bi-arrow-down me-1"></i>使用最新IPFS哈希
+                                        </button>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="encrypt-policy" class="form-label">访问策略</label>
+                                        <input type="text" class="form-control" id="encrypt-policy"
+                                            placeholder="例如: (doctor AND hospital:301) OR role:admin" required>
+                                        <div class="form-text text-light">定义哪些角色/属性的用户可以解密数据</div>
+                                    </div>
+                                    <button type="submit" class="btn btn-light">
+                                        <i class="bi bi-lock me-1"></i>加密数据
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="card abe-result-card">
+                            <div class="card-header">
+                                <h5><i class="bi bi-file-lock me-2"></i>加密结果</h5>
+                            </div>
+                            <div class="card-body">
+                                <div id="abe-encrypt-result">
+                                    <p>请填写表单并加密数据</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ABE解密 -->
+            <div id="abe-decrypt-section" class="section d-none">
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="card abe-form-card">
+                            <div class="card-header">
+                                <h5><i class="bi bi-unlock me-2"></i>解密数据</h5>
+                            </div>
+                            <div class="card-body">
+                                <form id="abe-decrypt-form">
+                                    <div class="mb-3">
+                                        <label for="decrypt-ciphertext" class="form-label">密文</label>
+                                        <textarea class="form-control" id="decrypt-ciphertext" rows="4"
+                                            placeholder="粘贴要解密的密文" required></textarea>
+                                        <button type="button" class="btn btn-sm btn-outline-light mt-2"
+                                            onclick="useLatestCiphertext()">
+                                            <i class="bi bi-arrow-down me-1"></i>使用最新加密结果
+                                        </button>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="decrypt-userkey" class="form-label">用户属性密钥</label>
+                                        <textarea class="form-control" id="decrypt-userkey" rows="3"
+                                            placeholder="粘贴用户的属性密钥" required></textarea>
+                                        <button type="button" class="btn btn-sm btn-outline-light mt-2"
+                                            onclick="useLatestUserKey()">
+                                            <i class="bi bi-arrow-down me-1"></i>使用最新生成的密钥
+                                        </button>
+                                    </div>
+                                    <button type="submit" class="btn btn-light">
+                                        <i class="bi bi-unlock me-1"></i>解密数据
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="card abe-result-card">
+                            <div class="card-header">
+                                <h5><i class="bi bi-file-text me-2"></i>解密结果</h5>
+                            </div>
+                            <div class="card-body">
+                                <div id="abe-decrypt-result">
+                                    <p>请填写表单并解密数据</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ABE操作日志 -->
+            <div id="abe-logs-section" class="section d-none">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5><i class="bi bi-journal-text me-2"></i>ABE操作日志</h5>
+                        <button class="btn btn-sm btn-outline-primary" onclick="loadABELogs()">
+                            <i class="bi bi-arrow-clockwise me-1"></i>刷新
+                        </button>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>时间</th>
+                                        <th>操作类型</th>
+                                        <th>用户ID</th>
+                                        <th>IP地址</th>
+                                        <th>详情</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="abe-logs-list">
+                                    <!-- 操作日志将动态加载到这里 -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 医生DID和VC管理平台 -->
+        <div id="doctor-did-platform" class="platform-section container">
+            <!-- 医生DID/VC平台导航 -->
+            <nav class="navbar navbar-expand-lg navbar-light bg-light mb-4">
+                <div class="container-fluid">
+                    <span class="navbar-brand">
+                        <i class="bi bi-person-circle me-2"></i>医生DID和VC管理
+                    </span>
+                    <button class="navbar-toggler" type="button" data-bs-toggle="collapse"
+                        data-bs-target="#doctorDidNavbarNav" aria-controls="doctorDidNavbarNav" aria-expanded="false"
+                        aria-label="Toggle navigation">
+                        <span class="navbar-toggler-icon"></span>
+                    </button>
+                    <div class="collapse navbar-collapse" id="doctorDidNavbarNav">
+                        <div class="navbar-nav">
+                            <a class="nav-link" href="#" id="nav-doctor-identity">
+                                <i class="bi bi-person-badge me-1"></i>医生身份
+                            </a>
+                            <a class="nav-link" href="#" id="nav-doctor-credential">
+                                <i class="bi bi-card-checklist me-1"></i>医生凭证
+                            </a>
+                            <a class="nav-link" href="#" id="nav-verify-credential">
+                                <i class="bi bi-shield-check me-1"></i>验证凭证
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </nav>
+
+            <!-- 医生身份管理 -->
+            <div id="doctor-identity-section" class="section">
+                <h2><i class="bi bi-person-badge me-2"></i>医生身份管理</h2>
+                <div class="card">
+                    <div class="card-header">
+                        <h5><i class="bi bi-plus-circle me-2"></i>创建医生DID</h5>
+                    </div>
+                    <div class="card-body">
+                        <form id="doctor-did-form">
+                            <div class="mb-3">
+                                <label for="doctor-name" class="form-label">医生姓名</label>
+                                <input type="text" class="form-control" id="doctor-name" placeholder="请输入医生姓名" required>
+                            </div>
+                            <div class="mb-3">
+                                <label for="license-number" class="form-label">执业编号</label>
+                                <input type="text" class="form-control" id="license-number" placeholder="请输入执业编号"
+                                    required>
+                            </div>
+                            <button type="button" class="btn btn-primary" onclick="createDoctorDID()">
+                                <i class="bi bi-person-plus me-1"></i>创建医生DID
+                            </button>
+                        </form>
+                        <div id="doctor-did-result" class="mt-3"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 医生凭证管理 -->
+            <div id="doctor-credential-section" class="section d-none">
+                <h2><i class="bi bi-card-checklist me-2"></i>医生凭证管理</h2>
+                <div class="card">
+                    <div class="card-header">
+                        <h5><i class="bi bi-award me-2"></i>颁发医生凭证</h5>
+                    </div>
+                    <div class="card-body">
+                        <form id="doctor-vc-form">
+                            <div class="mb-3">
+                                <label for="issuer-did" class="form-label">颁发者DID (医院)</label>
+                                <input type="text" class="form-control" id="issuer-did" value="0x1234"
+                                    placeholder="医院DID" required>
+                                <div class="form-text">医院或医疗机构的DID</div>
+                            </div>
+                            <div class="mb-3">
+                                <label for="doctor-did-input" class="form-label">医生DID</label>
+                                <input type="text" class="form-control" id="doctor-did-input" placeholder="医生DID"
+                                    required>
+                                <div class="form-text">要颁发凭证的医生DID</div>
+                            </div>
+                            <div class="mb-3">
+                                <label for="vc-type-select" class="form-label">凭证类型</label>
+                                <select class="form-select" id="vc-type-select" required>
+                                    <option value="">请选择凭证类型</option>
+                                    <option value="执业资格">执业资格</option>
+                                    <option value="专科医师">专科医师</option>
+                                    <option value="主任医师">主任医师</option>
+                                    <option value="副主任医师">副主任医师</option>
+                                    <option value="主治医师">主治医师</option>
+                                </select>
+                            </div>
+                            <div class="mb-3">
+                                <label for="vc-content" class="form-label">凭证内容</label>
+                                <textarea class="form-control" id="vc-content" rows="4" placeholder="凭证详情内容"
+                                    required></textarea>
+                                <div class="form-text">详细描述医生的资质和专业信息</div>
+                            </div>
+                            <button type="button" class="btn btn-primary" onclick="issueDoctorVC()">
+                                <i class="bi bi-award me-1"></i>颁发凭证
+                            </button>
+                        </form>
+                        <div id="issue-vc-result" class="mt-3"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 验证凭证 -->
+            <div id="verify-credential-section" class="section d-none">
+                <h2><i class="bi bi-shield-check me-2"></i>验证凭证</h2>
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="card">
+                            <div class="card-header">
+                                <h5><i class="bi bi-shield-check me-2"></i>验证医生凭证</h5>
+                            </div>
+                            <div class="card-body">
+                                <form id="verify-doctor-vc-form">
+                                    <div class="mb-3">
+                                        <label for="verify-vc-id" class="form-label">凭证ID</label>
+                                        <input type="text" class="form-control" id="verify-vc-id" placeholder="请输入凭证ID"
+                                            required>
+                                        <div class="form-text">输入要验证的凭证ID</div>
+                                    </div>
+                                    <button type="button" class="btn btn-primary" onclick="verifyDoctorVC()">
+                                        <i class="bi bi-shield-check me-1"></i>验证凭证
+                                    </button>
+                                </form>
+                                <div id="verify-vc-result" class="mt-3"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="card">
+                            <div class="card-header">
+                                <h5><i class="bi bi-search me-2"></i>查询医生凭证</h5>
+                            </div>
+                            <div class="card-body">
+                                <form id="query-doctor-vcs-form">
+                                    <div class="mb-3">
+                                        <label for="query-doctor-did" class="form-label">医生DID</label>
+                                        <input type="text" class="form-control" id="query-doctor-did"
+                                            placeholder="请输入医生DID" required>
+                                        <div class="form-text">输入医生的DID来查询其所有凭证</div>
+                                    </div>
+                                    <button type="button" class="btn btn-info" onclick="queryDoctorVCs()">
+                                        <i class="bi bi-search me-1"></i>查询凭证
+                                    </button>
+                                </form>
+                                <div id="query-vcs-result" class="mt-3"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- DID和VC管理平台 -->
+        <div id="did-vc-platform" class="platform-section container">
+            <!-- DID/VC平台导航 -->
+            <nav class="navbar navbar-expand-lg navbar-light bg-light mb-4">
+                <div class="container-fluid">
+                    <span class="navbar-brand">
+                        <i class="bi bi-person-circle me-2"></i>DID和VC管理
+                    </span>
+                    <button class="navbar-toggler" type="button" data-bs-toggle="collapse"
+                        data-bs-target="#didVcNavbarNav" aria-controls="didVcNavbarNav" aria-expanded="false"
+                        aria-label="Toggle navigation">
+                        <span class="navbar-toggler-icon"></span>
+                    </button>
+                    <div class="collapse navbar-collapse" id="didVcNavbarNav">
+                        <div class="navbar-nav">
+                            <a class="nav-link" href="#" id="nav-did-list">
+                                <i class="bi bi-list me-1"></i>DID列表
+                            </a>
+                            <a class="nav-link" href="#" id="nav-did-create">
+                                <i class="bi bi-plus-circle me-1"></i>创建DID
+                            </a>
+                            <a class="nav-link" href="javascript:void(0);" id="nav-doctor-did"
+                                onclick="window.showDoctorDIDSection && window.showDoctorDIDSection()">
+                                <i class="bi bi-person-badge me-1"></i>医生DID
+                            </a>
+                            <a class="nav-link" href="#" id="nav-vc-issue">
+                                <i class="bi bi-card-checklist me-1"></i>颁发凭证
+                            </a>
+                            <a class="nav-link" href="javascript:void(0);" id="nav-doctor-vc"
+                                onclick="window.showDoctorVCSection && window.showDoctorVCSection()">
+                                <i class="bi bi-prescription2 me-1"></i>医生凭证
+                            </a>
+                            <a class="nav-link" href="#" id="nav-vc-manage">
+                                <i class="bi bi-folder me-1"></i>凭证管理
+                            </a>
+                            <a class="nav-link" href="#" id="nav-vp-create">
+                                <i class="bi bi-file-earmark-check me-1"></i>创建表示
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </nav>
+
+            <!-- 当前选择的DID显示 -->
+            <div id="selected-did-container" class="alert alert-info d-none">
+                <strong>当前DID:</strong> <span id="selected-did" class="did-string"></span>
+            </div>
+
+            <!-- DID列表 -->
+            <div id="did-list-section" class="section">
+                <h2><i class="bi bi-list me-2"></i>DID列表</h2>
+                <div class="card">
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>DID</th>
+                                        <th>方法</th>
+                                        <th>控制者地址</th>
+                                        <th>状态</th>
+                                        <th>操作</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="did-list">
+                                    <!-- DID列表将动态加载到这里 -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- DID创建 -->
+            <div class="card" id="didCreateCard">
+                <div class="card-header">
+                    <h5 class="mb-0">创建DID</h5>
+                </div>
+                <div class="card-body">
+                    <form id="createDIDForm">
+                        <div class="mb-3">
+                            <label for="didMethod" class="form-label">DID方法</label>
+                            <select class="form-select" id="didMethod" required>
+                                <option value="key">Key - 基于密钥的DID</option>
+                                <option value="ethr">Ethr - 基于以太坊的DID</option>
+                                <option value="web">Web - 基于域名的DID</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="controllerAddress" class="form-label">控制者地址</label>
+                            <input type="text" class="form-control" id="controllerAddress"
+                                placeholder="对于ethr方法，输入以太坊地址">
+                            <small class="text-muted">留空将自动使用MetaMask钱包地址（仅限ethr方法）</small>
+                        </div>
+                        <div class="mb-3">
+                            <label for="publicKey" class="form-label">公钥（可选）</label>
+                            <textarea class="form-control" id="publicKey" rows="3" placeholder="JWK格式的公钥"></textarea>
+                        </div>
+                        <button type="button" class="btn btn-primary" onclick="createDID()">创建DID</button>
+                        <button type="button" class="btn btn-success" onclick="createDIDFromWallet()">
+                            <i class="fas fa-wallet"></i> 使用钱包创建DID
+                        </button>
                     </form>
                 </div>
             </div>
-        </div>
 
-        <!-- 创建NFT元数据表单 -->
-        <div id="metadata-section" class="section d-none">
-            <h2>创建NFT元数据</h2>
-            <div class="card">
-                <div class="card-body">
-                    <form id="metadata-form">
-                        <div class="mb-3">
-                            <label for="metadata-name" class="form-label">名称</label>
-                            <input type="text" class="form-control" id="metadata-name" placeholder="输入NFT名称" required>
+            <!-- 颁发凭证 -->
+            <div id="vc-issue-section" class="section d-none">
+                <h2><i class="bi bi-card-checklist me-2"></i>颁发可验证凭证</h2>
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="card did-form-card">
+                            <div class="card-header">
+                                <h5><i class="bi bi-award me-2"></i>颁发新凭证</h5>
+                            </div>
+                            <div class="card-body">
+                                <form id="issue-vc-form">
+                                    <div class="mb-3">
+                                        <label for="vc-issuer-did" class="form-label">颁发者DID</label>
+                                        <input type="text" class="form-control did-field" id="vc-issuer-did" readonly
+                                            required>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="vc-subject-did" class="form-label">主体DID</label>
+                                        <input type="text" class="form-control" id="vc-subject-did"
+                                            placeholder="did:method:..." required>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="vc-type" class="form-label">凭证类型</label>
+                                        <input type="text" class="form-control" id="vc-type"
+                                            placeholder="IdentityCredential, DegreeCredential等" required>
+                                        <div class="form-text text-light">输入凭证类型，多个类型用逗号分隔</div>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="vc-expiration" class="form-label">过期日期（可选）</label>
+                                        <input type="datetime-local" class="form-control" id="vc-expiration">
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">凭证主体内容</label>
+                                        <div class="mb-2">
+                                            <input type="text" class="form-control" id="vc-subject-name"
+                                                placeholder="姓名">
+                                        </div>
+                                        <div class="mb-2">
+                                            <input type="number" class="form-control" id="vc-subject-age"
+                                                placeholder="年龄">
+                                        </div>
+                                        <div class="mb-2">
+                                            <input type="text" class="form-control" id="vc-subject-id-number"
+                                                placeholder="身份证号">
+                                        </div>
+                                    </div>
+                                    <button type="submit" class="btn btn-light">
+                                        <i class="bi bi-award me-1"></i>颁发凭证
+                                    </button>
+                                </form>
+                            </div>
                         </div>
-                        <div class="mb-3">
-                            <label for="metadata-description" class="form-label">描述</label>
-                            <textarea class="form-control" id="metadata-description" rows="3" placeholder="输入NFT描述"
-                                required></textarea>
-                        </div>
-                        <div class="mb-3">
-                            <label for="metadata-external-url" class="form-label">外部链接</label>
-                            <input type="url" class="form-control" id="metadata-external-url"
-                                placeholder="https://example.com">
-                        </div>
-                        <div class="mb-3">
-                            <label for="metadata-image" class="form-label">图像链接</label>
-                            <input type="url" class="form-control" id="metadata-image"
-                                placeholder="https://example.com/image.jpg 或 ipfs://..." required>
-                        </div>
-                        <div class="mb-3">
-                            <label for="metadata-policy" class="form-label">策略</label>
-                            <input type="text" class="form-control" id="metadata-policy" placeholder="输入策略值" required>
-                        </div>
-                        <div class="mb-3">
-                            <label for="metadata-ciphertext" class="form-label">加密密文</label>
-                            <input type="text" class="form-control" id="metadata-ciphertext" placeholder="输入加密密文"
-                                required>
-                        </div>
-                        <button type="submit" class="btn btn-primary">创建元数据并上传到IPFS</button>
-                    </form>
-                </div>
-            </div>
-
-            <!-- 元数据预览 -->
-            <div class="card mt-4">
-                <div class="card-header">
-                    <h5>元数据预览</h5>
-                </div>
-                <div class="card-body">
-                    <pre id="metadata-preview" class="bg-light p-3"></pre>
-                </div>
-            </div>
-
-            <!-- 已创建的元数据列表 -->
-            <div class="card mt-4">
-                <div class="card-header">
-                    <h5>已创建的元数据</h5>
-                    <button class="btn btn-sm btn-outline-primary" onclick="loadMetadataList()">刷新</button>
-                </div>
-                <div class="card-body">
-                    <div class="table-responsive">
-                        <table class="table">
-                            <thead>
-                                <tr>
-                                    <th>名称</th>
-                                    <th>描述</th>
-                                    <th>IPFS哈希</th>
-                                    <th>创建时间</th>
-                                    <th>操作</th>
-                                </tr>
-                            </thead>
-                            <tbody id="metadata-list">
-                                <!-- 元数据列表将动态加载到这里 -->
-                            </tbody>
-                        </table>
                     </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- 我的NFT部分 -->
-        <div id="my-nfts-section" class="section d-none">
-            <div class="d-flex justify-content-between align-items-center mb-4">
-                <h2>我的NFT</h2>
-                <button class="btn btn-info" onclick="showRequestsModal()">申请管理</button>
-            </div>
-            <div id="my-nfts-list" class="row">
-                <!-- NFT卡片将在这里动态加载 -->
-            </div>
-        </div>
-
-        <!-- 申请管理 -->
-        <div id="requests-section" class="section d-none">
-            <h2>NFT申请管理</h2>
-            <ul class="nav nav-tabs" id="requestTabs">
-                <li class="nav-item">
-                    <a class="nav-link active" data-bs-toggle="tab" href="#pending-requests">待处理申请</a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link" data-bs-toggle="tab" href="#my-requests">我的申请</a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link" data-bs-toggle="tab" href="#new-request">创建申请</a>
-                </li>
-            </ul>
-            <div class="tab-content mt-3">
-                <div class="tab-pane fade show active" id="pending-requests">
-                    <div class="table-responsive">
-                        <table class="table table-hover">
-                            <thead class="table-light">
-                                <tr>
-                                    <th style="width: 5%;">ID</th>
-                                    <th style="width: 10%;">父NFT ID</th>
-                                    <th style="width: 25%;">申请者地址</th>
-                                    <th style="width: 30%;">URI</th>
-                                    <th style="width: 10%;">状态</th>
-                                    <th style="width: 20%;">操作</th>
-                                </tr>
-                            </thead>
-                            <tbody id="pending-requests-list">
-                                <!-- 待处理申请将动态加载到这里 -->
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-                <div class="tab-pane fade" id="my-requests">
-                    <div class="table-responsive">
-                        <table class="table">
-                            <thead>
-                                <tr>
-                                    <th>ID</th>
-                                    <th>父NFT ID</th>
-                                    <th>申请者地址</th>
-                                    <th>URI</th>
-                                    <th>状态</th>
-                                </tr>
-                            </thead>
-                            <tbody id="my-requests-list">
-                                <!-- 我的申请将动态加载到这里 -->
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-                <div class="tab-pane fade" id="new-request">
-                    <div class="card">
-                        <div class="card-body">
-                            <form id="request-form">
-                                <div class="mb-3">
-                                    <label for="parent-token-id" class="form-label">父NFT ID</label>
-                                    <input type="text" class="form-control" id="parent-token-id" required>
+                    <div class="col-md-6">
+                        <div class="card did-result-card">
+                            <div class="card-header">
+                                <h5><i class="bi bi-check-circle me-2"></i>颁发结果</h5>
+                            </div>
+                            <div class="card-body">
+                                <div id="vc-issue-result">
+                                    <p>请填写表单并颁发凭证</p>
                                 </div>
-                                <div class="mb-3">
-                                    <label for="request-uri" class="form-label">NFT URI</label>
-                                    <input type="text" class="form-control" id="request-uri" placeholder="ipfs://..."
-                                        required>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 凭证管理 -->
+            <div id="vc-manage-section" class="section d-none">
+                <h2><i class="bi bi-folder me-2"></i>凭证管理</h2>
+
+                <!-- 颁发的凭证 -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5><i class="bi bi-send me-2"></i>我颁发的凭证</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>凭证ID</th>
+                                        <th>主体DID</th>
+                                        <th>类型</th>
+                                        <th>状态</th>
+                                        <th>操作</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="issued-credentials-list">
+                                    <!-- 颁发的凭证将动态加载到这里 -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 收到的凭证 -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5><i class="bi bi-inbox me-2"></i>我收到的凭证</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>凭证ID</th>
+                                        <th>颁发者DID</th>
+                                        <th>类型</th>
+                                        <th>状态</th>
+                                        <th>操作</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="received-credentials-list">
+                                    <!-- 收到的凭证将动态加载到这里 -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 撤销凭证 -->
+                <div class="card">
+                    <div class="card-header">
+                        <h5><i class="bi bi-x-circle me-2"></i>撤销凭证</h5>
+                    </div>
+                    <div class="card-body">
+                        <form id="revoke-vc-form">
+                            <div class="mb-3">
+                                <label for="revoke-vc-id" class="form-label">凭证ID</label>
+                                <input type="text" class="form-control" id="revoke-vc-id" placeholder="urn:uuid:..."
+                                    required>
+                            </div>
+                            <div class="mb-3">
+                                <label for="revoke-vc-issuer" class="form-label">颁发者DID</label>
+                                <input type="text" class="form-control" id="revoke-vc-issuer"
+                                    placeholder="did:method:..." required>
+                            </div>
+                            <button type="submit" class="btn btn-danger">
+                                <i class="bi bi-x-circle me-1"></i>撤销凭证
+                            </button>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- 验证凭证 -->
+                <div class="row mt-4">
+                    <div class="col-md-12">
+                        <div class="card">
+                            <div class="card-header">
+                                <h5><i class="bi bi-shield-check me-2"></i>验证凭证</h5>
+                            </div>
+                            <div class="card-body">
+                                <form id="verify-vc-form">
+                                    <div class="mb-3">
+                                        <label for="verify-vc-json" class="form-label">凭证JSON</label>
+                                        <textarea class="form-control" id="verify-vc-json" rows="6"
+                                            placeholder="粘贴要验证的凭证JSON" required></textarea>
+                                    </div>
+                                    <button type="submit" class="btn btn-primary">
+                                        <i class="bi bi-shield-check me-1"></i>验证凭证
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 创建可验证表示 -->
+            <div id="vp-create-section" class="section d-none">
+                <h2><i class="bi bi-file-earmark-check me-2"></i>创建可验证表示</h2>
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="card did-form-card">
+                            <div class="card-header">
+                                <h5><i class="bi bi-file-earmark-plus me-2"></i>创建新表示</h5>
+                            </div>
+                            <div class="card-body">
+                                <form id="create-vp-form">
+                                    <div class="mb-3">
+                                        <label for="vp-holder-did" class="form-label">持有者DID</label>
+                                        <input type="text" class="form-control did-field" id="vp-holder-did" readonly
+                                            required>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="vp-verifier-did" class="form-label">验证者DID（可选）</label>
+                                        <input type="text" class="form-control" id="vp-verifier-did"
+                                            placeholder="did:method:...">
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="vp-credential-ids" class="form-label">选择凭证</label>
+                                        <select class="form-control" id="vp-credential-ids" multiple required>
+                                            <!-- 凭证选项将动态加载 -->
+                                        </select>
+                                        <div class="form-text text-light">按住Ctrl键选择多个凭证</div>
+                                    </div>
+                                    <button type="submit" class="btn btn-light">
+                                        <i class="bi bi-file-earmark-check me-1"></i>创建表示
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="card did-result-card">
+                            <div class="card-header">
+                                <h5><i class="bi bi-check-circle me-2"></i>创建结果</h5>
+                            </div>
+                            <div class="card-body">
+                                <div id="vp-create-result">
+                                    <p>请填写表单并创建表示</p>
                                 </div>
-                                <button type="submit" class="btn btn-primary">提交申请</button>
-                            </form>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 验证表示 -->
+                <div class="row mt-4">
+                    <div class="col-md-12">
+                        <div class="card">
+                            <div class="card-header">
+                                <h5><i class="bi bi-shield-check me-2"></i>验证表示</h5>
+                            </div>
+                            <div class="card-body">
+                                <form id="verify-vp-form">
+                                    <div class="mb-3">
+                                        <label for="verify-vp-json" class="form-label">表示JSON</label>
+                                        <textarea class="form-control" id="verify-vp-json" rows="6"
+                                            placeholder="粘贴要验证的表示JSON" required></textarea>
+                                    </div>
+                                    <button type="submit" class="btn btn-primary">
+                                        <i class="bi bi-shield-check me-1"></i>验证表示
+                                    </button>
+                                </form>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
+
     </div>
 
     <!-- 加载指示器 -->
@@ -417,9 +1453,194 @@
         </div>
     </div>
 
+    <!-- DID文档模态框 -->
+    <div class="modal fade" id="did-document-modal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">DID文档</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <pre id="did-document-content" class="bg-light p-3"></pre>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 凭证模态框 -->
+    <div class="modal fade" id="credential-modal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">可验证凭证</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <pre id="credential-content" class="bg-light p-3"></pre>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 表示模态框 -->
+    <div class="modal fade" id="presentation-modal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">可验证表示</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <pre id="presentation-content" class="bg-light p-3"></pre>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 撤销凭证确认模态框 -->
+    <div class="modal fade" id="revoke-confirm-modal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">确认撤销凭证</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p>您确定要撤销以下凭证吗？</p>
+                    <p><strong>凭证ID:</strong> <span id="revoke-credential-id" class="credential-id"></span></p>
+                    <p class="text-danger">此操作不可逆转！</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="button" class="btn btn-danger" id="confirm-revoke-btn">确认撤销</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 调试工具 -->
+    <div id="debug-tools" class="position-fixed bottom-0 end-0 p-3" style="z-index: 1000;">
+        <div class="btn-group-vertical">
+            <button id="debug-api-btn" class="btn btn-warning btn-sm mb-1" onclick="debugAPICall()">
+                调试API
+            </button>
+            <button id="debug-wallet-btn" class="btn btn-info btn-sm mb-1" onclick="debugWalletStatus()">
+                钱包状态
+            </button>
+            <button id="force-load-btn" class="btn btn-success btn-sm mb-1" onclick="forceLoadRequests()">
+                强制加载
+            </button>
+            <button id="test-display-btn" class="btn btn-primary btn-sm" onclick="testDisplayRequests()">
+                测试显示
+            </button>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="https://cdn.ethers.io/lib/ethers-5.7.2.umd.min.js"></script>
     <script src="/static/js/app.js"></script>
+    <script src="/static/js/abe.js"></script>
+    <script src="/static/js/did_vc.js"></script>
+
+    <script>
+        // 调试函数
+        async function debugAPICall() {
+            if (!isConnected) {
+                alert('请先连接钱包');
+                return;
+            }
+
+            console.log('开始调试API调用...');
+            try {
+                await loadPendingRequests();
+            } catch (error) {
+                console.error('调试API调用失败:', error);
+            }
+        }
+
+        // 调试钱包状态
+        function debugWalletStatus() {
+            console.log('=== 钱包状态调试 ===');
+            console.log('isConnected:', typeof isConnected !== 'undefined' ? isConnected : '未定义');
+            console.log('currentAccount:', typeof currentAccount !== 'undefined' ? currentAccount : '未定义');
+            console.log('localStorage walletConnected:', localStorage.getItem('walletConnected'));
+            console.log('localStorage walletAccount:', localStorage.getItem('walletAccount'));
+            console.log('window.ethereum:', typeof window.ethereum !== 'undefined' ? '已安装' : '未安装');
+
+            // 显示在页面上
+            alert(`钱包状态:
+连接状态: ${typeof isConnected !== 'undefined' ? isConnected : '未定义'}
+当前账户: ${typeof currentAccount !== 'undefined' ? currentAccount : '未定义'}
+MetaMask: ${typeof window.ethereum !== 'undefined' ? '已安装' : '未安装'}`);
+        }
+
+        // 强制加载请求（忽略连接状态）
+        async function forceLoadRequests() {
+            console.log('强制加载请求...');
+
+            const pendingList = document.getElementById('pending-requests-list');
+            if (!pendingList) {
+                console.error('找不到pending-requests-list元素');
+                alert('找不到请求列表元素');
+                return;
+            }
+
+            pendingList.innerHTML = '<tr><td colspan="6" class="text-center">强制加载中...</td></tr>';
+
+            try {
+                // 直接发送API请求，不检查钱包状态
+                const response = await fetch(`${API_BASE_URL}/nft/all-requests`, {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                console.log('强制API响应状态:', response.status);
+                const result = await response.json();
+                console.log('强制API返回数据:', result);
+
+                if (response.ok && result.requests) {
+                    if (result.requests.length === 0) {
+                        pendingList.innerHTML = '<tr><td colspan="6" class="text-center">没有找到请求数据</td></tr>';
+                    } else {
+                        pendingList.innerHTML = '<tr><td colspan="6" class="text-center">找到 ' + result.requests.length + ' 条请求，但需要钱包认证才能显示详情</td></tr>';
+                    }
+                } else {
+                    pendingList.innerHTML = '<tr><td colspan="6" class="text-center text-danger">API调用失败: ' + (result.error || '未知错误') + '</td></tr>';
+                }
+            } catch (error) {
+                console.error('强制加载失败:', error);
+                pendingList.innerHTML = '<tr><td colspan="6" class="text-center text-danger">强制加载失败: ' + error.message + '</td></tr>';
+            }
+        }
+
+        // 在连接钱包后显示调试按钮
+        function showDebugButton() {
+            const debugTools = document.getElementById('debug-tools');
+            if (debugTools) {
+                debugTools.style.display = 'block';
+            }
+        }
+
+        // 修改原有的updateUIForConnectedWallet函数
+        const originalUpdateUIForConnectedWallet = updateUIForConnectedWallet;
+        updateUIForConnectedWallet = function () {
+            originalUpdateUIForConnectedWallet();
+            showDebugButton();
+        };
+    </script>
+
 </body>
 
 </html>

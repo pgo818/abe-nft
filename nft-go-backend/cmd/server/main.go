@@ -9,10 +9,10 @@ import (
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 
-	"nft-go-backend/internal/api"
-	"nft-go-backend/internal/blockchain"
-	"nft-go-backend/internal/config"
-	"nft-go-backend/internal/models"
+	"github.com/ABE/nft/nft-go-backend/internal/api"
+	"github.com/ABE/nft/nft-go-backend/internal/blockchain"
+	"github.com/ABE/nft/nft-go-backend/internal/config"
+	"github.com/ABE/nft/nft-go-backend/internal/models"
 )
 
 func main() {
@@ -22,7 +22,7 @@ func main() {
 		log.Fatalf("加载配置失败: %v", err)
 	}
 
-	// 初始化数据库
+	// 初始化数据库（包含ABE表的迁移）
 	err = models.InitDB(cfg.GetDSN())
 	if err != nil {
 		log.Fatalf("初始化数据库失败: %v", err)
@@ -65,14 +65,7 @@ func main() {
 	// 设置HTML模板目录
 	r.LoadHTMLGlob(templatesPath)
 
-	// 主页路由
-	r.GET("/", func(c *gin.Context) {
-		c.HTML(200, "index.html", gin.H{
-			"title": "NFT平台",
-		})
-	})
-
-	// 初始化API处理程序
+	// 初始化API处理程序（现在包含ABE功能）
 	handlers := api.NewHandlers(client)
 
 	// 设置路由
@@ -83,6 +76,12 @@ func main() {
 
 	// 启动服务器
 	port := ":" + cfg.Port
-	log.Printf("API服务器启动在 %s 端口", port)
+	log.Printf("NFT+ABE+DID/VC集成服务器启动在 %s 端口", port)
+	log.Println("可用的API端点:")
+	log.Println("  - NFT相关: /api/nft/*")
+	log.Println("  - ABE相关: /api/abe/*")
+	log.Println("  - DID相关: /api/did/*")
+	log.Println("  - VC相关: /api/vc/*")
+	log.Println("  - 元数据: /api/metadata/*")
 	log.Fatal(r.Run(port))
 }

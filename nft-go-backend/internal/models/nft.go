@@ -1,6 +1,8 @@
 package models
 
 import (
+	"encoding/json"
+
 	"gorm.io/gorm"
 )
 
@@ -51,11 +53,24 @@ type CreateChildRequest struct {
 // ChildNFTRequest 表示申请子NFT的数据库记录结构
 type ChildNFTRequest struct {
 	gorm.Model
+	RequestId        string `json:"requestId" gorm:"-"` // 虚拟字段，用于API响应
 	ChildTokenID     string `json:"childTokenId"`
 	ParentTokenId    string `json:"parentTokenId"`
 	ApplicantAddress string `json:"applicantAddress"`
 	URI              string `json:"uri"`
 	Status           string `json:"status" gorm:"default:pending"` // pending, approved, rejected
+}
+
+// MarshalJSON 自定义JSON序列化，确保ID字段被正确包含
+func (c ChildNFTRequest) MarshalJSON() ([]byte, error) {
+	type Alias ChildNFTRequest
+	return json.Marshal(&struct {
+		ID uint `json:"id"`
+		*Alias
+	}{
+		ID:    c.ID,
+		Alias: (*Alias)(&c),
+	})
 }
 
 // RequestChildNFTRequest 表示申请子NFT的API请求结构
@@ -145,4 +160,16 @@ type ChildNFTRequestWithParentInfo struct {
 	ChildNFTRequest
 	ParentNFTOwner string `json:"parentNftOwner"`
 	CanOperate     bool   `json:"canOperate"` // 当前用户是否可以操作此申请
+}
+
+// MarshalJSON 自定义JSON序列化，确保ID字段被正确包含
+func (c ChildNFTRequestWithParentInfo) MarshalJSON() ([]byte, error) {
+	type Alias ChildNFTRequestWithParentInfo
+	return json.Marshal(&struct {
+		ID uint `json:"id"`
+		*Alias
+	}{
+		ID:    c.ID,
+		Alias: (*Alias)(&c),
+	})
 }
