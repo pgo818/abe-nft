@@ -1,0 +1,218 @@
+@echo off
+chcp 65001 >nul
+echo ===== NFT+ABE+DID/VC 项目快速启动脚本 =====
+echo.
+
+REM 检查是否在项目根目录
+if not exist "package.json" (
+    echo ❌ 错误：请在项目根目录运行此脚本！
+    echo 当前目录：%CD%
+    pause
+    exit /b 1
+)
+
+echo ⏳ 正在检查环境依赖...
+
+REM 检查Node.js
+node --version >nul 2>&1
+if %ERRORLEVEL% neq 0 (
+    echo ❌ 未检测到Node.js，请先安装Node.js 18.0+
+    echo 下载地址：https://nodejs.org/
+    pause
+    exit /b 1
+)
+echo ✅ Node.js 已安装
+
+REM 检查Go
+go version >nul 2>&1
+if %ERRORLEVEL% neq 0 (
+    echo ❌ 未检测到Go语言，请先安装Go 1.21+
+    echo 下载地址：https://golang.org/dl/
+    pause
+    exit /b 1
+)
+echo ✅ Go语言 已安装
+
+REM 检查MySQL
+mysql --version >nul 2>&1
+if %ERRORLEVEL% neq 0 (
+    echo ⚠️  未检测到MySQL，请确保MySQL已安装并启动
+    echo 下载地址：https://dev.mysql.com/downloads/installer/
+    echo.
+    set /p continue="是否继续？(y/n): "
+    if /i not "%continue%"=="y" exit /b 1
+) else (
+    echo ✅ MySQL 已安装
+)
+
+echo.
+echo ===== 第一步：安装项目依赖 =====
+
+REM 安装主项目依赖
+echo 🔄 安装Hardhat依赖...
+call npm install
+if %ERRORLEVEL% neq 0 (
+    echo ❌ Hardhat依赖安装失败！
+    pause
+    exit /b 1
+)
+echo ✅ Hardhat依赖安装完成
+
+REM 安装Go依赖
+echo 🔄 安装Go后端依赖...
+cd nft-go-backend
+call go mod download
+call go mod tidy
+if %ERRORLEVEL% neq 0 (
+    echo ❌ Go依赖安装失败！
+    pause
+    exit /b 1
+)
+echo ✅ Go依赖安装完成
+
+REM 安装Vue依赖
+echo 🔄 安装Vue前端依赖...
+cd static\vue-frontend
+call npm install
+if %ERRORLEVEL% neq 0 (
+    echo ❌ Vue依赖安装失败！
+    pause
+    exit /b 1
+)
+echo ✅ Vue依赖安装完成
+
+cd ..\..\..
+
+echo.
+echo ===== 第二步：检查配置文件 =====
+
+REM 检查.env文件
+if not exist "nft-go-backend\.env" (
+    echo ⚠️  未找到.env配置文件
+    echo 📝 正在创建默认配置文件...
+    
+    echo # 服务配置 > nft-go-backend\.env
+    echo PORT=8080 >> nft-go-backend\.env
+    echo. >> nft-go-backend\.env
+    echo # 区块链配置 >> nft-go-backend\.env
+    echo ETHEREUM_RPC=http://localhost:7545 >> nft-go-backend\.env
+    echo MAIN_NFT_ADDRESS=请更新为实际合约地址 >> nft-go-backend\.env
+    echo CHILD_NFT_ADDRESS=请更新为实际合约地址 >> nft-go-backend\.env
+    echo PRIVATE_KEY=请更新为实际私钥 >> nft-go-backend\.env
+    echo CHAIN_ID=1337 >> nft-go-backend\.env
+    echo. >> nft-go-backend\.env
+    echo # 数据库配置 >> nft-go-backend\.env
+    echo DB_USER=root >> nft-go-backend\.env
+    echo DB_PASSWORD=123456 >> nft-go-backend\.env
+    echo DB_HOST=localhost >> nft-go-backend\.env
+    echo DB_PORT=3306 >> nft-go-backend\.env
+    echo DB_NAME=nft_db >> nft-go-backend\.env
+    echo. >> nft-go-backend\.env
+    echo # IPFS配置（可选） >> nft-go-backend\.env
+    echo IPFS_ACCESS_KEY=your_ipfs_access_key >> nft-go-backend\.env
+    
+    echo ✅ 默认配置文件已创建
+    echo ⚠️  请编辑 nft-go-backend\.env 文件，更新实际的配置信息
+) else (
+    echo ✅ 配置文件已存在
+)
+
+echo.
+echo ===== 第三步：提示用户配置区块链环境 =====
+echo.
+echo 🔗 区块链环境配置提醒：
+echo 1. 启动Ganache（GUI版本或命令行版本）
+echo    - 端口：7545
+echo    - 链ID：1337
+echo    - 账户数：10个
+echo.
+echo 2. 配置MetaMask
+echo    - 网络名称：Local Ganache
+echo    - RPC URL：http://localhost:7545
+echo    - 链ID：1337
+echo    - 货币符号：ETH
+echo.
+echo 3. 导入Ganache账户私钥到MetaMask
+echo.
+
+set /p ganache_ready="✅ Ganache是否已启动？(y/n): "
+if /i not "%ganache_ready%"=="y" (
+    echo ⚠️  请先启动Ganache再继续
+    pause
+    exit /b 1
+)
+
+echo.
+echo ===== 第四步：编译和部署智能合约 =====
+
+echo 🔄 编译智能合约...
+call npm run compile
+if %ERRORLEVEL% neq 0 (
+    echo ❌ 合约编译失败！
+    pause
+    exit /b 1
+)
+echo ✅ 合约编译完成
+
+echo 🔄 部署智能合约到本地网络...
+call npm run deploy:local
+if %ERRORLEVEL% neq 0 (
+    echo ❌ 合约部署失败！请检查Ganache是否正在运行
+    pause
+    exit /b 1
+)
+echo ✅ 合约部署完成
+
+echo.
+echo ⚠️  重要：请记录合约部署地址，并更新 nft-go-backend\.env 文件中的：
+echo   - MAIN_NFT_ADDRESS
+echo   - CHILD_NFT_ADDRESS
+echo   - PRIVATE_KEY（使用Ganache中的一个账户私钥）
+echo.
+
+set /p config_updated="✅ 配置是否已更新？(y/n): "
+if /i not "%config_updated%"=="y" (
+    echo ⚠️  请先更新配置文件再继续
+    echo 📝 编辑文件：nft-go-backend\.env
+    pause
+    exit /b 1
+)
+
+echo.
+echo ===== 第五步：初始化数据库 =====
+
+echo 🔄 创建数据库...
+mysql -u root -p123456 -e "CREATE DATABASE IF NOT EXISTS nft_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;" 2>nul
+if %ERRORLEVEL% neq 0 (
+    echo ⚠️  数据库创建可能失败，请手动创建数据库 'nft_db'
+    echo SQL命令：CREATE DATABASE nft_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+)
+echo ✅ 数据库准备完成
+
+echo.
+echo ===== 第六步：启动后端服务 =====
+
+echo 🚀 正在启动后端服务...
+echo ⚠️  服务启动后请保持此窗口打开
+echo 🌐 访问地址：http://localhost:8080
+echo.
+echo 按任意键启动服务...
+pause >nul
+
+cd nft-go-backend
+call start.bat
+
+echo.
+echo ===== 启动完成 =====
+echo.
+echo 🎉 项目启动完成！
+echo 🌐 请访问：http://localhost:8080
+echo.
+echo 📋 下一步操作：
+echo 1. 连接MetaMask钱包
+echo 2. 访问DID和VC管理页面注册身份
+echo 3. 开始使用NFT+ABE+DID/VC功能
+echo.
+echo 📚 详细使用说明请参考：PROJECT_SETUP_GUIDE.md
+echo.
+pause 

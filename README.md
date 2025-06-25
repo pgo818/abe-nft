@@ -111,6 +111,37 @@ npm run test
 - **Ethers.js** - 以太坊库
 - **Chai** - 测试框架
 
+## 📚 项目文档
+
+为了帮助用户快速上手，项目提供了以下详细文档：
+
+- **[QUICK_START_README.md](QUICK_START_README.md)** - 快速启动指南
+- **[PROJECT_SETUP_GUIDE.md](PROJECT_SETUP_GUIDE.md)** - 完整部署指南  
+- **[TROUBLESHOOTING.md](TROUBLESHOOTING.md)** - 故障排除指南
+- **[PORT_CONFIGURATION.md](PORT_CONFIGURATION.md)** - 端口配置说明
+
+## 🚀 快速启动
+
+### Windows用户
+```bash
+quick-start.bat
+```
+
+### Linux/Mac用户
+```bash
+chmod +x quick-start.sh
+./quick-start.sh
+```
+
+## 📋 项目端口配置
+
+- **Go后端服务**: 8080端口
+- **Vue前端开发**: 8081端口  
+- **Ganache区块链**: 7545端口
+- **MySQL数据库**: 3306端口
+
+详细配置说明请查看 [PORT_CONFIGURATION.md](PORT_CONFIGURATION.md)
+
 ## 许可证
 
 MIT 
