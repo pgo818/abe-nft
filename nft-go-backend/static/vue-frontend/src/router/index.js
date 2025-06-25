@@ -18,8 +18,9 @@ import RequestManager from '@/views/nft/RequestManager.vue'
 // ABE相关页面
 import ABESetup from '@/views/abe/ABESetup.vue'
 import ABEKeyGen from '@/views/abe/ABEKeyGen.vue'
-// import ABEEncrypt from '@/views/abe/ABEEncrypt.vue'
-// import ABEDecrypt from '@/views/abe/ABEDecrypt.vue'
+import ABEEncrypt from '@/views/abe/ABEEncrypt.vue'
+import ABEDecrypt from '@/views/abe/ABEDecrypt.vue'
+import IPFSUpload from '@/views/abe/IPFSUpload.vue'
 // import ABELogs from '@/views/abe/ABELogs.vue'
 
 // DID相关页面
@@ -87,7 +88,6 @@ const routes = [
                 name: 'ABEKeyGen',
                 component: ABEKeyGen
             },
-            /* 暂未实现的组件
             {
                 path: 'encrypt',
                 name: 'ABEEncrypt',
@@ -99,6 +99,12 @@ const routes = [
                 component: ABEDecrypt
             },
             {
+                path: 'ipfs',
+                name: 'IPFSUpload',
+                component: IPFSUpload
+            },
+            /* 暂未实现的组件
+            {
                 path: 'logs',
                 name: 'ABELogs',
                 component: ABELogs
@@ -107,7 +113,7 @@ const routes = [
             // 默认子路由
             {
                 path: '',
-                redirect: { name: 'ABESetup' }
+                redirect: { name: 'ABEKeyGen' }
             }
         ]
     },

@@ -2,6 +2,7 @@ package service
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"gorm.io/gorm"
@@ -160,19 +161,43 @@ func (s *DIDService) CreateDoctorDID(walletAddress, name, licenseNumber string) 
 		return nil, fmt.Errorf("钱包地址、姓名和执业编号不能为空")
 	}
 
-	// 检查是否已存在
+	// 首先检查是否已存在医生记录
 	var existingDoctor models.Doctor
 	result := s.DB.Where("wallet_address = ? AND status = ?", walletAddress, "active").First(&existingDoctor)
 	if result.Error == nil {
-		// 已存在
+		// 已存在，直接返回
 		return &existingDoctor, nil
 	} else if result.Error != gorm.ErrRecordNotFound {
 		// 查询出错
 		return nil, fmt.Errorf("查询医生DID失败: %v", result.Error)
 	}
 
-	// 不存在，创建新医生DID
+	// 生成DID标识符
 	didID := fmt.Sprintf("did:ethr:%s", walletAddress)
+
+	// 检查是否已存在相同的DID记录
+	var existingDID models.DID
+	result = s.DB.Where("did_string = ? AND status = ?", didID, "active").First(&existingDID)
+	if result.Error == nil {
+		// DID已存在，检查是否有对应的医生记录
+		result = s.DB.Where("did_string = ? AND status = ?", didID, "active").First(&existingDoctor)
+		if result.Error == nil {
+			// 医生记录也存在，直接返回
+			return &existingDoctor, nil
+		}
+		// 只有DID存在但没有医生记录，创建医生记录
+		newDoctor := models.Doctor{
+			DIDString:     didID,
+			WalletAddress: walletAddress,
+			Name:          name,
+			LicenseNumber: licenseNumber,
+			Status:        "active",
+		}
+		if err := s.DB.Create(&newDoctor).Error; err != nil {
+			return nil, fmt.Errorf("创建医生记录失败: %v", err)
+		}
+		return &newDoctor, nil
+	}
 
 	// 使用事务确保数据一致性
 	tx := s.DB.Begin()
@@ -186,6 +211,15 @@ func (s *DIDService) CreateDoctorDID(walletAddress, name, licenseNumber string) 
 		return nil, fmt.Errorf("开始事务失败: %v", err)
 	}
 
+	// 在事务中再次检查是否存在（防止并发问题）
+	var checkDoctor models.Doctor
+	result = tx.Where("wallet_address = ? AND status = ?", walletAddress, "active").First(&checkDoctor)
+	if result.Error == nil {
+		// 在事务执行期间，其他请求已经创建了医生记录
+		tx.Rollback()
+		return &checkDoctor, nil
+	}
+
 	// 创建DID记录
 	newDID := models.DID{
 		DIDString:     didID,
@@ -195,6 +229,14 @@ func (s *DIDService) CreateDoctorDID(walletAddress, name, licenseNumber string) 
 
 	if err := tx.Create(&newDID).Error; err != nil {
 		tx.Rollback()
+		// 检查是否是重复键错误
+		if isDuplicateKeyError(err) {
+			// 可能是并发创建导致的重复，尝试获取已存在的记录
+			var existingDoc models.Doctor
+			if findErr := s.DB.Where("wallet_address = ? AND status = ?", walletAddress, "active").First(&existingDoc).Error; findErr == nil {
+				return &existingDoc, nil
+			}
+		}
 		return nil, fmt.Errorf("创建DID记录失败: %v", err)
 	}
 
@@ -209,6 +251,14 @@ func (s *DIDService) CreateDoctorDID(walletAddress, name, licenseNumber string) 
 
 	if err := tx.Create(&newDoctor).Error; err != nil {
 		tx.Rollback()
+		// 检查是否是重复键错误
+		if isDuplicateKeyError(err) {
+			// 可能是并发创建导致的重复，尝试获取已存在的记录
+			var existingDoc models.Doctor
+			if findErr := s.DB.Where("wallet_address = ? AND status = ?", walletAddress, "active").First(&existingDoc).Error; findErr == nil {
+				return &existingDoc, nil
+			}
+		}
 		return nil, fmt.Errorf("创建医生记录失败: %v", err)
 	}
 
@@ -217,6 +267,17 @@ func (s *DIDService) CreateDoctorDID(walletAddress, name, licenseNumber string) 
 	}
 
 	return &newDoctor, nil
+}
+
+// isDuplicateKeyError 检查是否是重复键错误
+func isDuplicateKeyError(err error) bool {
+	if err == nil {
+		return false
+	}
+	errStr := err.Error()
+	return strings.Contains(errStr, "Error 1062") || 
+		   strings.Contains(errStr, "UNIQUE constraint failed") || 
+		   strings.Contains(errStr, "duplicate key")
 }
 
 // GetDoctorByDID 通过DID获取医生信息
@@ -235,4 +296,13 @@ func (s *DIDService) GetDoctorByWallet(walletAddress string) (*models.Doctor, er
 		return nil, fmt.Errorf("未找到医生: %v", err)
 	}
 	return &doctor, nil
+}
+
+// GetAllDoctors 获取所有医生DID
+func (s *DIDService) GetAllDoctors() ([]models.Doctor, error) {
+	var doctors []models.Doctor
+	if err := s.DB.Where("status = ?", "active").Find(&doctors).Error; err != nil {
+		return nil, fmt.Errorf("获取医生列表失败: %v", err)
+	}
+	return doctors, nil
 }

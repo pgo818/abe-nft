@@ -10,7 +10,6 @@ export default {
         myNFTs: [],
         metadata: [],
         requests: [],
-        selectedNFT: null,
         isLoading: false,
         error: null
     },
@@ -27,9 +26,6 @@ export default {
         },
         setRequests(state, requests) {
             state.requests = requests
-        },
-        setSelectedNFT(state, nft) {
-            state.selectedNFT = nft
         },
         SET_LOADING(state, isLoading) {
             state.isLoading = isLoading
@@ -387,7 +383,7 @@ export default {
         },
 
         // 申请子NFT
-        async requestChildNFT({ commit, rootState, dispatch }, { parentTokenId, uri }) {
+        async requestChildNFT({ commit, rootState, dispatch }, { parentTokenId, uri, autoApprove = false, vcCredentials = null }) {
             commit('SET_LOADING', true)
             try {
                 if (!rootState.wallet.isConnected) {
@@ -398,6 +394,7 @@ export default {
                 const message = createSignMessage('request_child_nft', {
                     parentTokenId: parentTokenId,
                     uri: uri,
+                    autoApprove: autoApprove,
                     timestamp: Date.now()
                 })
 
@@ -412,23 +409,41 @@ export default {
                     parentTokenId: parentTokenId,
                     applicantAddress: rootState.wallet.account,
                     uri: uri,
+                    autoApprove: autoApprove,
                     description: `申请创建父NFT ${parentTokenId} 的子NFT`
                 }
 
+                // 如果提供了VC凭证，添加到请求中
+                if (vcCredentials) {
+                    requestData.vcCredentials = vcCredentials
+                }
+
                 // 使用nftService申请子NFT
-                // eslint-disable-next-line no-unused-vars
                 const result = await nftService.requestChildNFT(requestData)
 
-                commit('app/showSuccess', '子NFT申请已提交，等待审批', { root: true })
+                // 根据是否自动审核显示不同的成功消息
+                if (result.autoApproved) {
+                    commit('app/showSuccess',
+                        `VC凭证验证通过！子NFT申请已自动审核并创建。交易哈希: ${result.transactionHash}`,
+                        { root: true }
+                    )
+                } else {
+                    commit('app/showSuccess', '子NFT申请已提交，等待审批', { root: true })
+
+                    // 如果有策略验证结果但未自动审核通过，显示详细信息
+                    if (result.policyResult && result.policyResult.reason) {
+                        commit('app/showWarning', `未能自动审核: ${result.policyResult.reason}`, { root: true })
+                    }
+                }
 
                 // 刷新请求列表
                 dispatch('loadRequests')
 
-                return true
+                return result
             } catch (error) {
                 console.error('提交申请出错:', error)
                 commit('SET_ERROR', '提交申请失败: ' + error.message)
-                return false
+                throw error
             } finally {
                 commit('SET_LOADING', false)
             }
@@ -456,6 +471,49 @@ export default {
                 return result
             } catch (error) {
                 commit('SET_ERROR', error.message || '更新元数据失败')
+                throw error
+            } finally {
+                commit('SET_LOADING', false)
+            }
+        },
+
+        // 更新NFT元数据URI
+        async updateNFTMetadataURI({ commit, rootState, dispatch }, { tokenId, newUri }) {
+            commit('SET_LOADING', true)
+            try {
+                if (!rootState.wallet.isConnected) {
+                    throw new Error('钱包未连接')
+                }
+
+                // 创建要签名的消息
+                const message = createSignMessage('update_nft_uri', {
+                    tokenId: tokenId,
+                    newUri: newUri,
+                    timestamp: Date.now()
+                })
+
+                // 获取签名
+                const signature = await dispatch('wallet/signMessage', message, { root: true })
+
+                // 构建请求数据
+                const updateData = {
+                    address: rootState.wallet.account,
+                    signature: signature,
+                    message: message,
+                    tokenId: tokenId,
+                    newUri: newUri
+                }
+
+                // 调用NFT服务更新URI
+                const result = await nftService.updateNFTMetadataURI(updateData)
+
+                // 刷新NFT列表以获取最新数据
+                await dispatch('loadMyNFTs')
+                await dispatch('loadAllNFTs')
+
+                return result
+            } catch (error) {
+                commit('SET_ERROR', error.message || '更新NFT元数据URI失败')
                 throw error
             } finally {
                 commit('SET_LOADING', false)

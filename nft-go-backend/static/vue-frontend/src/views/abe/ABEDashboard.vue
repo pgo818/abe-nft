@@ -12,19 +12,25 @@
         </button>
         <div class="collapse navbar-collapse" id="abeNavbarNav">
           <div class="navbar-nav">
-            <router-link class="nav-link" :to="{ name: 'ABESetup' }">
-              <i class="bi bi-gear me-1"></i>系统初始化
-            </router-link>
             <router-link class="nav-link" :to="{ name: 'ABEKeyGen' }">
               <i class="bi bi-key me-1"></i>密钥生成
             </router-link>
-            <!-- 暂未实现的功能 -->
-            <a class="nav-link disabled" href="#" tabindex="-1" aria-disabled="true">
+            <router-link class="nav-link" :to="{ name: 'ABEEncrypt' }">
               <i class="bi bi-lock me-1"></i>加密
-            </a>
-            <a class="nav-link disabled" href="#" tabindex="-1" aria-disabled="true">
+            </router-link>
+            <router-link class="nav-link" :to="{ name: 'ABEDecrypt' }">
               <i class="bi bi-unlock me-1"></i>解密
-            </a>
+            </router-link>
+            <router-link class="nav-link" :to="{ name: 'IPFSUpload' }">
+              <i class="bi bi-cloud-upload me-1"></i>IPFS管理
+            </router-link>
+            <!-- 系统初始化功能隐藏，后端自动处理 -->
+            <!-- 
+            <router-link class="nav-link" :to="{ name: 'ABESetup' }">
+              <i class="bi bi-gear me-1"></i>系统初始化
+            </router-link>
+            -->
+            <!-- 暂未实现的功能 -->
             <a class="nav-link disabled" href="#" tabindex="-1" aria-disabled="true">
               <i class="bi bi-journal-text me-1"></i>操作日志
             </a>

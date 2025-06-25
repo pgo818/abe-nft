@@ -79,6 +79,8 @@ func (router *Router) SetupRoutes(r *gin.Engine) {
 	ipfs := api.Group("/ipfs")
 	{
 		ipfs.POST("/upload", router.MetadataHandlers.UploadToIPFSHandler)
+		ipfs.GET("/get/:hash", router.MetadataHandlers.GetFromIPFSHandler)
+		ipfs.GET("/download/:hash", router.MetadataHandlers.DownloadFromIPFSHandler)
 	}
 
 	// ABE相关路由（不需要认证，用于测试）
@@ -88,9 +90,10 @@ func (router *Router) SetupRoutes(r *gin.Engine) {
 		abe.POST("/keygen", router.ABEHandlers.KeyGenABE)
 		abe.POST("/encrypt", router.ABEHandlers.EncryptABE)
 		abe.POST("/decrypt", router.ABEHandlers.DecryptABE)
+		abe.POST("/upload-image", router.ABEHandlers.UploadImageABE)
 	}
 
-	// DID路由 - 仅支持钱包地址创建和管理
+	// DID路由
 	did := api.Group("/did")
 	{
 		// 通用DID操作
@@ -103,6 +106,7 @@ func (router *Router) SetupRoutes(r *gin.Engine) {
 
 		// 医生DID相关操作
 		did.POST("/doctor/create", router.VCHandlers.CreateDoctorDIDHandler) // 创建医生DID
+		did.GET("/doctor/list", router.VCHandlers.GetDoctorDIDsHandler)      // 获取医生DID列表
 
 		// 保留DID解析功能
 		did.POST("/resolve", router.DIDHandlers.ResolveDIDHandler) // 解析DID文档
@@ -136,6 +140,7 @@ func (router *Router) SetupRoutes(r *gin.Engine) {
 		// NFT相关
 		secured.POST("/nft/mint", router.NFTHandlers.MintNFTHandler)
 		secured.POST("/nft/update-metadata", router.NFTHandlers.UpdateMetadataHandler)
+		secured.POST("/nft/update-uri", router.NFTHandlers.UpdateNFTURIHandler)
 
 		// 子NFT相关
 		secured.POST("/nft/createChild", router.ChildNFTHandlers.CreateChildNFTHandler)

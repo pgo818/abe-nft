@@ -110,8 +110,12 @@ export default {
     
     // 组件挂载后检查钱包连接状态和初始化模态框
     onMounted(async () => {
+      console.log('WalletConnector 组件挂载，当前连接状态:', isConnected.value)
+      console.log('当前账户:', account.value)
+      
       // 检查钱包连接状态
-      await store.dispatch('wallet/checkWalletConnection')
+      const connectionResult = await store.dispatch('wallet/checkWalletConnection')
+      console.log('钱包连接检查结果:', connectionResult)
       
       // 初始化模态框
       if (connectModal.value) {
@@ -131,6 +135,8 @@ export default {
           // 网络变化时重新加载页面
           window.location.reload()
         })
+      } else {
+        console.warn('MetaMask 未安装或不可用')
       }
     })
     

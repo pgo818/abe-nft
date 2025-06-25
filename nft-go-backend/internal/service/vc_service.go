@@ -481,26 +481,69 @@ func generateChallenge() string {
 
 // IssueDoctorVC 颁发医生可验证凭证
 func (s *VCService) IssueDoctorVC(issuerDID, doctorDID, vcType, vcContent string) (*models.DoctorVC, error) {
+	fmt.Printf("开始颁发医生凭证: issuerDID=%s, doctorDID=%s, vcType=%s\n", issuerDID, doctorDID, vcType)
+	
 	// 验证参数
 	if issuerDID == "" || doctorDID == "" || vcType == "" {
 		return nil, fmt.Errorf("颁发者DID、医生DID和凭证类型不能为空")
 	}
 
-	// 验证医院DID（固定地址验证）
-	// 在实际应用中应该检查issuerDID是否为有效的医院DID
-	// 这里简化处理，假设以"hospital"开头的DID为有效医院DID
+	// 验证医院DID（简化验证）
 	if issuerDID != "0x1234" && !IsHospitalDID(issuerDID) {
+		fmt.Printf("医院DID验证失败: %s\n", issuerDID)
 		return nil, fmt.Errorf("颁发者DID不是有效的医院DID")
 	}
 
 	// 验证医生DID
 	var doctor models.Doctor
 	if err := s.DB.Where("did_string = ? AND status = ?", doctorDID, "active").First(&doctor).Error; err != nil {
+		fmt.Printf("医生DID验证失败: %v\n", err)
 		return nil, fmt.Errorf("医生DID无效: %v", err)
+	}
+	fmt.Printf("找到医生记录: %+v\n", doctor)
+
+	// 检查该医生是否已经有活跃的凭证
+	// var existingVC models.DoctorVC
+	// result := s.DB.Where("doctor_did = ? AND status = ?", doctorDID, "active").First(&existingVC)
+	// fmt.Println("result:",result)
+	// if result.Error == nil {
+	// 	fmt.Printf("发现现有凭证，直接返回: %+v\n", existingVC)
+	// 	return &existingVC, nil
+	// } else if result.Error != gorm.ErrRecordNotFound {
+	// 	fmt.Printf("查询现有凭证失败: %v\n", result.Error)
+	// 	return nil, fmt.Errorf("查询现有凭证失败: %v", result.Error)
+	// }
+
+	// 简化的钱包地址检查 - 直接查询所有该钱包的凭证
+	var walletVCs []models.DoctorVC
+	var walletsToCheck []string
+	
+	// 先获取所有同钱包地址的医生DID
+	var doctorsWithSameWallet []models.Doctor
+	if err := s.DB.Where("wallet_address = ? AND status = ?", doctor.WalletAddress, "active").Find(&doctorsWithSameWallet).Error; err != nil {
+		fmt.Printf("查询同钱包医生失败: %v\n", err)
+		return nil, fmt.Errorf("查询同钱包医生失败: %v", err)
+	}
+	
+	for _, d := range doctorsWithSameWallet {
+		walletsToCheck = append(walletsToCheck, d.DIDString)
+	}
+	
+	if len(walletsToCheck) > 0 {
+		if err := s.DB.Where("doctor_did IN ? AND status = ?", walletsToCheck, "active").Find(&walletVCs).Error; err != nil {
+			fmt.Printf("查询钱包凭证失败: %v\n", err)
+			return nil, fmt.Errorf("查询钱包凭证失败: %v", err)
+		}
+		
+		if len(walletVCs) > 0 {
+			fmt.Printf("钱包地址已经有凭证，返回第一个: %+v\n", walletVCs[0])
+			return &walletVCs[0], nil
+		}
 	}
 
 	// 生成凭证ID
 	vcID := fmt.Sprintf("vc:%s", uuid.New().String())
+	fmt.Printf("生成凭证ID: %s\n", vcID)
 
 	// 创建凭证
 	now := time.Now()
@@ -518,11 +561,15 @@ func (s *VCService) IssueDoctorVC(issuerDID, doctorDID, vcType, vcContent string
 		Status:    "active",
 	}
 
+	fmt.Printf("准备保存凭证: %+v\n", doctorVC)
+
 	// 保存到数据库
 	if err := s.DB.Create(&doctorVC).Error; err != nil {
+		fmt.Printf("保存医生凭证失败: %v\n", err)
 		return nil, fmt.Errorf("保存医生凭证失败: %v", err)
 	}
 
+	fmt.Printf("成功保存凭证: %+v\n", doctorVC)
 	return &doctorVC, nil
 }
 

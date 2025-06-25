@@ -32,24 +32,25 @@
 
               <div class="mb-3">
                 <label for="doctor-department" class="form-label">科室</label>
-                <input type="text" class="form-control" id="doctor-department" v-model="doctorForm.department"
-                  placeholder="输入科室" required>
+                <select class="form-select" id="doctor-department" v-model="doctorForm.department" required>
+                  <option value="" disabled>选择科室</option>
+                  <option v-for="dept in departmentOptions" :key="dept" :value="dept">{{ dept }}</option>
+                </select>
               </div>
 
               <div class="mb-3">
                 <label for="doctor-hospital" class="form-label">医院</label>
-                <input type="text" class="form-control" id="doctor-hospital" v-model="doctorForm.hospital"
-                  placeholder="输入医院名称" required>
+                <select class="form-select" id="doctor-hospital" v-model="doctorForm.hospital" required>
+                  <option value="" disabled>选择医院</option>
+                  <option v-for="hospital in hospitalOptions" :key="hospital" :value="hospital">{{ hospital }}</option>
+                </select>
               </div>
 
               <div class="mb-3">
                 <label for="doctor-title" class="form-label">职称</label>
                 <select class="form-select" id="doctor-title" v-model="doctorForm.title" required>
-                  <option value="" disabled selected>选择职称</option>
-                  <option value="住院医师">住院医师</option>
-                  <option value="主治医师">主治医师</option>
-                  <option value="副主任医师">副主任医师</option>
-                  <option value="主任医师">主任医师</option>
+                  <option value="" disabled>选择职称</option>
+                  <option v-for="title in titleOptions" :key="title" :value="title">{{ title }}</option>
                 </select>
               </div>
 
@@ -61,8 +62,12 @@
 
               <div class="mb-3">
                 <label for="doctor-specialties" class="form-label">专长</label>
-                <textarea class="form-control" id="doctor-specialties" v-model="doctorForm.specialties" rows="3"
-                  placeholder="输入医生专长，多个专长请用逗号分隔"></textarea>
+                <select class="form-select" id="doctor-specialties" v-model="doctorForm.specialties" multiple>
+                  <option v-for="specialty in specialtyOptions" :key="specialty" :value="specialty">{{ specialty }}</option>
+                </select>
+                <div class="form-text">
+                  可多选。按住Ctrl/Cmd键点击可选择多个专长。
+                </div>
               </div>
 
               <button type="submit" class="btn btn-primary" :disabled="isSubmitting">
@@ -143,8 +148,8 @@
             <div class="mb-3">
               <label class="form-label">凭证ID</label>
               <div class="input-group">
-                <input type="text" class="form-control" readonly :value="createdVC.id">
-                <button class="btn btn-outline-primary" type="button" @click="copyToClipboard(createdVC.id)">
+                <input type="text" class="form-control" readonly :value="createdVC.id || createdVC.vcId || '未生成'">
+                <button class="btn btn-outline-primary" type="button" @click="copyToClipboard(createdVC.id || createdVC.vcId)">
                   <i class="bi bi-clipboard"></i>
                 </button>
               </div>
@@ -159,8 +164,8 @@
               <button class="btn btn-primary" @click="downloadVC">
                 <i class="bi bi-download me-1"></i>下载凭证
               </button>
-              <router-link :to="{ name: 'VCManage' }" class="btn btn-outline-primary">
-                <i class="bi bi-card-checklist me-1"></i>管理凭证
+              <router-link :to="{ name: 'DIDList' }" class="btn btn-outline-primary">
+                <i class="bi bi-card-checklist me-1"></i>查看我的凭证
               </router-link>
             </div>
           </div>
@@ -362,6 +367,42 @@ export default {
     const doctorDetailModal = ref(null)
     let bsDoctorDetailModal = null
 
+    // 预定义选项数据（与ABE加密页面保持一致）
+    const departmentOptions = [
+      '心内科', '心外科', '神经内科', '神经外科', '呼吸科', '消化科', 
+      '肾内科', '内分泌科', '血液科', '肿瘤科', '儿科', '妇产科', 
+      '骨科', '泌尿外科', '胸外科', '普外科', '整形外科', '眼科', 
+      '耳鼻喉科', '口腔科', '皮肤科', '麻醉科', '影像科', '检验科', 
+      '病理科', '药剂科', '康复科', '中医科', '急诊科', 'ICU重症监护'
+    ]
+
+    const hospitalOptions = [
+      '北京协和医院', '北京同仁医院', '北京安贞医院', '北京朝阳医院', 
+      '北京友谊医院', '北京天坛医院', '北京宣武医院', '北京大学第一医院',
+      '北京大学人民医院', '北京大学第三医院', '清华大学附属医院', '北京中医医院',
+      '上海瑞金医院', '上海华山医院', '上海中山医院', '上海第一人民医院',
+      '上海第六人民医院', '上海东方医院', '复旦大学附属医院', '上海交通大学医学院附属医院',
+      '广州中山大学附属医院', '广州南方医院', '深圳人民医院', '深圳第二人民医院',
+      '天津医科大学总医院', '天津第一中心医院', '西安交通大学第一附属医院',
+      '四川大学华西医院', '重庆医科大学附属医院', '山东大学齐鲁医院'
+    ]
+
+    const titleOptions = [
+      '住院医师', '主治医师', '副主任医师', '主任医师',
+      '高级医师', '特级专家', '首席专家', '学科带头人',
+      '实习医师', '规培医师', '进修医师', '访问学者'
+    ]
+
+    const specialtyOptions = [
+      '心血管疾病', '脑血管疾病', '呼吸系统疾病', '消化系统疾病',
+      '内分泌疾病', '肿瘤治疗', '外科手术', '微创手术', 
+      '介入治疗', '康复治疗', '儿童疾病', '妇科疾病',
+      '骨科疾病', '皮肤病', '眼科疾病', '耳鼻喉疾病',
+      '口腔疾病', '精神疾病', '中医治疗', '针灸推拿',
+      '急救医学', '重症医学', '麻醉医学', '影像诊断',
+      '病理诊断', '检验医学', '药物治疗', '预防医学'
+    ]
+
     // 表单数据
     const doctorForm = ref({
       name: '',
@@ -370,7 +411,7 @@ export default {
       hospital: '',
       title: '',
       license: '',
-      specialties: ''
+      specialties: []
     })
 
     // 创建结果
@@ -411,7 +452,9 @@ export default {
           hospital: doctorForm.value.hospital,
           title: doctorForm.value.title,
           license: doctorForm.value.license,
-          specialties: doctorForm.value.specialties
+          specialties: Array.isArray(doctorForm.value.specialties) 
+            ? doctorForm.value.specialties.join(', ') 
+            : doctorForm.value.specialties
         })
 
         if (result) {
@@ -441,7 +484,9 @@ export default {
           hospital: doctorForm.value.hospital,
           title: doctorForm.value.title,
           license: doctorForm.value.license,
-          specialties: doctorForm.value.specialties
+          specialties: Array.isArray(doctorForm.value.specialties) 
+            ? doctorForm.value.specialties.join(', ') 
+            : doctorForm.value.specialties
         })
 
         if (result) {
@@ -476,7 +521,7 @@ export default {
           hospital: doctor.hospital,
           title: doctor.title,
           license: doctor.license,
-          specialties: doctor.specialties
+          specialties: doctor.specialties // 这里不需要转换，因为从数据库来的已经是字符串
         })
 
         if (result) {
@@ -539,7 +584,10 @@ export default {
 
       const a = document.createElement('a')
       a.href = url
-      a.download = `doctor-vc-${createdVC.value.id.split(':').pop()}.json`
+      // 确保能正确访问VC ID
+      const vcId = createdVC.value.id || createdVC.value.vcId || 'unknown'
+      const fileName = vcId.includes(':') ? vcId.split(':').pop() : vcId
+      a.download = `doctor-vc-${fileName}.json`
       document.body.appendChild(a)
       a.click()
       document.body.removeChild(a)
@@ -591,6 +639,10 @@ export default {
       selectedDoctor,
       formattedVC,
       doctorDetailModal,
+      departmentOptions,
+      hospitalOptions,
+      titleOptions,
+      specialtyOptions,
       createDoctorDID,
       issueCredential,
       issueDoctorCredential,
@@ -617,5 +669,70 @@ pre {
 
 .card {
   margin-bottom: 1.5rem;
+}
+
+/* 多选下拉框样式 */
+select[multiple] {
+  min-height: 120px;
+  background-image: none;
+}
+
+select[multiple] option {
+  padding: 0.375rem 0.75rem;
+  margin: 0.125rem 0;
+  border-radius: 0.25rem;
+}
+
+select[multiple] option:checked {
+  background: linear-gradient(0deg, #007bff 0%, #0056b3 100%);
+  color: white;
+  font-weight: 500;
+}
+
+select[multiple]:focus {
+  border-color: #80bdff;
+  box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+}
+
+/* 表单标签样式 */
+.form-label {
+  font-weight: 600;
+  color: #495057;
+}
+
+/* 下拉选择框样式 */
+.form-select {
+  transition: all 0.2s ease;
+}
+
+.form-select:hover {
+  border-color: #007bff;
+}
+
+.form-select:focus {
+  border-color: #80bdff;
+  box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+}
+
+/* 表单文本提示样式 */
+.form-text {
+  font-size: 0.875rem;
+  color: #6c757d;
+  margin-top: 0.25rem;
+}
+
+/* 创建成功卡片动画 */
+.card .card-header.bg-success {
+  background: linear-gradient(135deg, #28a745 0%, #20c997 100%) !important;
+}
+
+/* 选择按钮样式 */
+.btn-outline-primary {
+  transition: all 0.3s ease;
+}
+
+.btn-outline-primary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(0, 123, 255, 0.2);
 }
 </style>

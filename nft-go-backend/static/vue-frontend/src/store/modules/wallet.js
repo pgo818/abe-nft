@@ -82,20 +82,32 @@ export default {
         // 检查钱包连接状态
         async checkWalletConnection({ commit, dispatch }) {
             try {
+                console.log('开始检查钱包连接状态...')
+
+                // 检查是否有MetaMask
+                if (!window.ethereum) {
+                    console.log('MetaMask 未安装')
+                    return false
+                }
+
                 // 首先尝试从localStorage恢复状态
                 const wasConnected = localStorage.getItem('walletConnected') === 'true'
                 const savedAccount = localStorage.getItem('walletAccount')
                 const savedDID = localStorage.getItem('userDID')
 
+                console.log('localStorage状态:', { wasConnected, savedAccount, savedDID })
+
                 if (wasConnected && savedAccount) {
                     // 检查MetaMask当前连接的账户
                     const accounts = await window.ethereum.request({ method: 'eth_accounts' })
+                    console.log('MetaMask 当前账户:', accounts)
 
                     if (accounts.length > 0) {
                         const currentAccount = accounts[0]
 
                         if (savedAccount === currentAccount) {
                             // localStorage中保存的账户与MetaMask当前账户一致
+                            console.log('恢复已保存的钱包连接:', currentAccount)
                             commit('setAccount', currentAccount)
                             commit('setConnected', true)
                             if (savedDID) {
@@ -107,6 +119,7 @@ export default {
                             return true
                         } else {
                             // 账户不一致，使用新账户
+                            console.log('账户已切换，更新为新账户:', currentAccount)
                             commit('setAccount', currentAccount)
                             commit('setConnected', true)
                             localStorage.setItem('walletAccount', currentAccount)
@@ -117,9 +130,16 @@ export default {
                         }
                     } else {
                         // MetaMask没有连接账户，清除过期状态
+                        console.log('MetaMask 没有连接的账户，清除本地状态')
                         localStorage.removeItem('walletConnected')
                         localStorage.removeItem('walletAccount')
+                        localStorage.removeItem('userDID')
+                        commit('setConnected', false)
+                        commit('setAccount', null)
+                        commit('setDID', null)
                     }
+                } else {
+                    console.log('没有保存的连接状态')
                 }
 
                 return false
@@ -192,10 +212,16 @@ export default {
     },
 
     getters: {
+        // 获取当前钱包地址
+        currentAccount: state => state.account,
+
         // 获取格式化的钱包地址（简短显示）
         shortAccount: state => {
             if (!state.account) return ''
             return `${state.account.substring(0, 6)}...${state.account.substring(state.account.length - 4)}`
-        }
+        },
+
+        // 检查钱包是否已连接
+        isWalletConnected: state => state.isConnected && !!state.account
     }
 } 

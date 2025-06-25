@@ -183,7 +183,7 @@ func (h *NFTHandlers) fetchNFTMetadata(uri string) (*models.NFTMetadata, error) 
 
 		// 尝试从数据库中查找该IPFS哈希对应的元数据
 		var metadata models.NFTMetadataDB
-		result := models.DB.Where("ipfs_hash = ?", ipfsHash).First(&metadata)
+		result := models.DB.Where("ip_fs_hash = ?", ipfsHash).First(&metadata)
 		if result.Error == nil {
 			fmt.Printf("从数据库找到元数据: %s\n", metadata.Name)
 			// 从数据库中找到了元数据
@@ -510,5 +510,84 @@ func (h *NFTHandlers) UpdateMetadataHandler(c *gin.Context) {
 		Message:         "元数据更新交易已提交",
 	}
 
+	c.JSON(http.StatusOK, response)
+}
+
+// UpdateNFTURIHandler 更新NFT元数据URI的处理程序
+func (h *NFTHandlers) UpdateNFTURIHandler(c *gin.Context) {
+	// 获取验证后的钱包地址
+	walletAddress, exists := c.Get("walletAddress")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "未经过身份验证"})
+		return
+	}
+
+	// 获取保存的原始请求体
+	rawBody, exists := c.Get("rawRequestBody")
+	if !exists {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "无法获取请求体"})
+		return
+	}
+
+	bodyBytes, ok := rawBody.([]byte)
+	if !ok {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "请求体格式错误"})
+		return
+	}
+
+	// 解析请求体
+	var req models.UpdateURIRequest
+	if err := json.Unmarshal(bodyBytes, &req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "无效的请求体: " + err.Error()})
+		return
+	}
+
+	// 验证签名请求地址与钱包地址匹配
+	if req.Address != walletAddress.(string) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "请求地址与签名地址不匹配"})
+		return
+	}
+
+	// 转换tokenID为big.Int
+	tokenID, ok := new(big.Int).SetString(req.TokenID, 10)
+	if !ok {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "无效的token ID"})
+		return
+	}
+
+	// 验证NFT所有权
+	owner, _, _, err := h.Client.GetNFTInfo(tokenID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "获取NFT信息失败: " + err.Error()})
+		return
+	}
+
+	// 将owner地址转换为小写后再比较
+	if strings.ToLower(owner) != strings.ToLower(walletAddress.(string)) {
+		c.JSON(http.StatusForbidden, gin.H{"error": "只有NFT所有者可以更新URI"})
+		return
+	}
+
+	// 更新NFT元数据URI
+	txHash, err := h.Client.UpdateMainNFTMetadata(tokenID, req.NewURI)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "更新NFT URI失败: " + err.Error()})
+		return
+	}
+
+	// 更新数据库记录
+	result := models.DB.Model(&models.NFT{}).Where("token_id = ?", req.TokenID).Update("uri", req.NewURI)
+	if result.Error != nil {
+		// 即使数据库更新失败，区块链操作已成功，也要返回成功响应
+		fmt.Printf("数据库更新失败，但区块链操作成功: %v\n", result.Error)
+	}
+
+	// 构造响应
+	response := models.TransactionResponse{
+		TransactionHash: txHash,
+		Message:         "NFT URI更新交易已提交",
+	}
+
+	// 返回JSON响应
 	c.JSON(http.StatusOK, response)
 }

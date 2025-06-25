@@ -40,9 +40,9 @@ const nftService = {
     return api.post('/nft/update-metadata', data);
   },
 
-  // 转移NFT
-  transferNFT: async (data) => {
-    const response = await api.post('/nft/transfer', data);
+  // 更新NFT元数据URI
+  updateNFTMetadataURI: async (data) => {
+    const response = await api.post('/nft/update-uri', data);
     return response.data;
   },
 
@@ -70,7 +70,10 @@ const nftService = {
 
   // 申请子NFT
   requestChildNFT: async (data) => {
-    return api.post('/nft/request-child', data);
+    console.log('申请子NFT请求数据:', data)
+    const response = await api.post('/nft/request-child', data);
+    console.log('申请子NFT响应:', response.data)
+    return response.data;
   },
 
   // 获取元数据列表

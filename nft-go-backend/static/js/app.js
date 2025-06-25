@@ -1031,10 +1031,27 @@ async function requestChildNFT(parentTokenId) {
         return;
     }
 
-    // 显示申请子NFT模态框
-    document.getElementById('request-parent-token-id').value = parentTokenId;
-    const modal = new bootstrap.Modal(document.getElementById('request-child-modal'));
-    modal.show();
+    try {
+        // 获取主NFT信息以获取URI
+        const response = await fetch(`${API_BASE_URL}/nft/${parentTokenId}`);
+        const result = await response.json();
+
+        if (!response.ok) {
+            showError('无法获取主NFT信息: ' + (result.error || '未知错误'));
+            return;
+        }
+
+        // 填充表单字段
+        document.getElementById('request-parent-token-id').value = parentTokenId;
+        document.getElementById('request-child-uri').value = result.uri || '';
+
+        // 显示申请子NFT模态框
+        const modal = new bootstrap.Modal(document.getElementById('request-child-modal'));
+        modal.show();
+    } catch (error) {
+        console.error('获取主NFT信息失败:', error);
+        showError('获取主NFT信息失败: ' + error.message);
+    }
 }
 
 // 创建子NFT函数（为拥有者提供）
@@ -1058,8 +1075,13 @@ async function handleRequestChildFormSubmit(event) {
     const parentTokenId = document.getElementById('request-parent-token-id').value.trim();
     const uri = document.getElementById('request-child-uri').value.trim();
 
-    if (!parentTokenId || !uri) {
-        showError('请填写所有必填字段');
+    if (!parentTokenId) {
+        showError('父NFT ID不能为空');
+        return;
+    }
+
+    if (!uri) {
+        showError('无法获取父NFT的URI，请重试');
         return;
     }
 
@@ -1262,6 +1284,122 @@ function updateMetadataPreview() {
     };
 
     document.getElementById('metadata-preview').textContent = JSON.stringify(metadata, null, 2);
+}
+
+// 图片上传功能
+document.addEventListener('DOMContentLoaded', function () {
+    // 绑定图片选择事件
+    const imageInput = document.getElementById('metadata-image-input');
+    if (imageInput) {
+        imageInput.addEventListener('change', handleMetadataImageSelect);
+    }
+
+    // 绑定图片URL输入事件，用于预览
+    const imageUrlInput = document.getElementById('metadata-image');
+    if (imageUrlInput) {
+        imageUrlInput.addEventListener('input', function () {
+            updateImagePreview(this.value);
+        });
+    }
+});
+
+// 处理图片选择
+async function handleMetadataImageSelect(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    // 验证文件类型
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml', 'image/bmp'];
+    if (!allowedTypes.includes(file.type)) {
+        showError('不支持的图片格式，支持: JPG, PNG, GIF, WebP, SVG, BMP');
+        return;
+    }
+
+    // 验证文件大小 (10MB)
+    const maxSize = 10 * 1024 * 1024; // 10MB
+    if (file.size > maxSize) {
+        showError('图片文件大小不能超过10MB');
+        return;
+    }
+
+    // 显示上传中状态
+    const button = document.querySelector('[onclick="document.getElementById(\'metadata-image-input\').click()"]');
+    const originalText = button.innerHTML;
+    button.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>上传中...';
+    button.disabled = true;
+
+    try {
+        console.log('开始上传图片:', file.name);
+
+        // 创建FormData
+        const formData = new FormData();
+        formData.append('image', file);
+
+        // 发送请求到ABE图片上传API
+        const response = await fetch(`${API_BASE_URL}/abe/upload-image`, {
+            method: 'POST',
+            body: formData
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || '上传失败');
+        }
+
+        const result = await response.json();
+        console.log('图片上传成功:', result);
+
+        // 使用主要的HTTP URL作为图片地址
+        const imageUrl = result.primary_url;
+        document.getElementById('metadata-image').value = imageUrl;
+
+        // 更新预览
+        updateImagePreview(imageUrl);
+
+        showSuccess(`图片上传成功！IPFS Hash: ${result.hash}`);
+
+    } catch (error) {
+        console.error('图片上传失败:', error);
+        showError('图片上传失败: ' + error.message);
+    } finally {
+        // 恢复按钮状态
+        button.innerHTML = originalText;
+        button.disabled = false;
+        // 清空input的value，允许重新选择同一个文件
+        event.target.value = '';
+    }
+}
+
+// 更新图片预览
+function updateImagePreview(imageUrl) {
+    const previewContainer = document.getElementById('metadata-image-preview');
+    const previewImg = document.getElementById('metadata-preview-img');
+
+    if (imageUrl && imageUrl.trim() !== '') {
+        // 转换IPFS链接为HTTP网关链接
+        let displayUrl = imageUrl;
+        if (imageUrl.startsWith('ipfs://')) {
+            const hash = imageUrl.replace('ipfs://', '');
+            displayUrl = `https://dweb.link/ipfs/${hash}`;
+        }
+
+        previewImg.src = displayUrl;
+        previewImg.onerror = function () {
+            // 图片加载失败时显示占位符
+            this.src = 'data:image/svg+xml;charset=UTF-8,%3Csvg%20width%3D%22200%22%20height%3D%22120%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Crect%20width%3D%22100%25%22%20height%3D%22100%25%22%20fill%3D%22%23f0f0f0%22%2F%3E%3Ctext%20x%3D%2250%25%22%20y%3D%2250%25%22%20font-family%3D%22Arial%22%20font-size%3D%2214%22%20text-anchor%3D%22middle%22%20dominant-baseline%3D%22middle%22%20fill%3D%22%23999%22%3E%E5%9B%BE%E7%89%87%E5%8A%A0%E8%BD%BD%E5%A4%B1%E8%B4%A5%3C%2Ftext%3E%3C%2Fsvg%3E';
+            this.onerror = null;
+        };
+        previewContainer.classList.remove('d-none');
+    } else {
+        previewContainer.classList.add('d-none');
+    }
+}
+
+// 移除图片
+function removeMetadataImage() {
+    document.getElementById('metadata-image').value = '';
+    document.getElementById('metadata-image-preview').classList.add('d-none');
+    showSuccess('图片已移除');
 }
 
 // 加载元数据列表

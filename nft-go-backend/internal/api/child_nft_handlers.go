@@ -11,6 +11,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 
 	"github.com/ABE/nft/nft-go-backend/internal/blockchain"
 	"github.com/ABE/nft/nft-go-backend/internal/models"
@@ -128,8 +129,8 @@ func (h *ChildNFTHandlers) RequestChildNFTHandler(c *gin.Context) {
 		return
 	}
 
-	fmt.Printf("请求内容: ParentTokenId=%s, ApplicantAddress=%s, URI=%s\n",
-		req.ParentTokenId, req.ApplicantAddress, req.URI)
+	fmt.Printf("请求内容: ParentTokenId=%s, ApplicantAddress=%s, URI=%s, AutoApprove=%v\n",
+		req.ParentTokenId, req.ApplicantAddress, req.URI, req.AutoApprove)
 
 	// 验证签名请求地址与钱包地址匹配
 	if req.Address != walletAddress {
@@ -156,12 +157,94 @@ func (h *ChildNFTHandlers) RequestChildNFTHandler(c *gin.Context) {
 
 	fmt.Printf("父NFT所有者: %s\n", owner)
 
-	// 保存申请记录到数据库
+	// 创建申请记录
 	request := models.ChildNFTRequest{
 		ParentTokenId:    req.ParentTokenId,
 		ApplicantAddress: req.ApplicantAddress,
 		URI:              req.URI,
 		Status:           "pending",
+		VCCredentials:    req.VCCredentials,
+		AutoApproved:     false,
+	}
+
+	// 如果提供了VC凭证且要求自动审核，尝试进行策略验证
+	var autoApproved bool = false
+	var policyResult map[string]interface{}
+
+	if req.AutoApprove && req.VCCredentials != "" {
+		fmt.Printf("开始自动审核流程...\n")
+
+		// 获取父NFT的访问策略
+		accessPolicy, err := h.getAccessPolicyForNFT(req.ParentTokenId)
+		if err != nil {
+			fmt.Printf("获取NFT访问策略失败: %v\n", err)
+		} else if accessPolicy != "" {
+			fmt.Printf("NFT访问策略: %s\n", accessPolicy)
+
+			// 创建ABE服务实例进行策略验证
+			abeService := NewABEService(models.DB)
+
+			// 验证VC凭证是否满足策略
+			satisfied, verificationResult, err := abeService.VerifyVCAgainstPolicy(req.VCCredentials, accessPolicy)
+			if err != nil {
+				fmt.Printf("策略验证过程出错: %v\n", err)
+				policyResult = map[string]interface{}{
+					"error":    err.Error(),
+					"verified": false,
+				}
+			} else {
+				policyResult = verificationResult
+
+				if satisfied {
+					fmt.Printf("VC凭证满足访问策略，自动审核通过\n")
+					autoApproved = true
+					request.Status = "auto_approved"
+					request.AutoApproved = true
+
+					// 自动创建子NFT
+					recipientAddr := common.HexToAddress(req.ApplicantAddress)
+					txHash, err := h.Client.CreateChildNFT(parentTokenID, owner, recipientAddr, req.URI)
+					if err != nil {
+						fmt.Printf("自动创建子NFT失败: %v\n", err)
+						// 如果创建失败，回退到手动审核
+						autoApproved = false
+						request.Status = "pending"
+						request.AutoApproved = false
+						policyResult["auto_creation_error"] = err.Error()
+					} else {
+						fmt.Printf("自动创建子NFT成功，交易哈希: %s\n", txHash)
+						request.ChildTokenID = fmt.Sprintf("auto_%d", time.Now().Unix())
+						policyResult["transaction_hash"] = txHash
+
+						// 将子NFT信息保存到NFT表中
+						childNFT := models.NFT{
+							TokenID:       request.ChildTokenID,
+							Owner:         req.ApplicantAddress,
+							URI:           req.URI,
+							IsChildNFT:    true,
+							ParentTokenID: req.ParentTokenId,
+							ContractType:  "child",
+						}
+						models.DB.Create(&childNFT)
+					}
+				} else {
+					fmt.Printf("VC凭证不满足访问策略，需要手动审核\n")
+					policyResult["reason"] = "VC凭证不满足访问策略要求"
+				}
+			}
+		} else {
+			fmt.Printf("父NFT没有设置访问策略，回退到手动审核\n")
+			policyResult = map[string]interface{}{
+				"reason":                 "父NFT没有设置访问策略",
+				"manual_review_required": true,
+			}
+		}
+	}
+
+	// 保存策略验证结果
+	if policyResult != nil {
+		policyResultJSON, _ := json.Marshal(policyResult)
+		request.PolicyResult = string(policyResultJSON)
 	}
 
 	fmt.Printf("保存申请记录到数据库...\n")
@@ -174,11 +257,78 @@ func (h *ChildNFTHandlers) RequestChildNFTHandler(c *gin.Context) {
 
 	fmt.Printf("申请记录保存成功，ID: %d\n", request.ID)
 
-	c.JSON(http.StatusOK, gin.H{
-		"message":      "子NFT申请已提交，等待父NFT持有者审批",
+	// 构建响应
+	response := gin.H{
 		"requestId":    request.ID,
 		"ownerAddress": owner,
-	})
+		"autoApproved": autoApproved,
+	}
+
+	if autoApproved {
+		response["message"] = "VC凭证验证通过，子NFT申请已自动审核并创建"
+		response["transactionHash"] = policyResult["transaction_hash"]
+		response["childTokenId"] = request.ChildTokenID
+	} else {
+		response["message"] = "子NFT申请已提交，等待父NFT持有者审批"
+		if policyResult != nil {
+			response["policyResult"] = policyResult
+		}
+	}
+
+	c.JSON(http.StatusOK, response)
+}
+
+// getAccessPolicyForNFT 获取NFT的访问策略
+func (h *ChildNFTHandlers) getAccessPolicyForNFT(tokenId string) (string, error) {
+	// 第一步：根据token ID查询NFT记录，获取URI
+	var nft models.NFT
+	nftResult := models.DB.Where("token_id = ?", tokenId).First(&nft)
+	if nftResult.Error != nil {
+		fmt.Printf("Token %s 在NFT表中未找到记录: %v\n", tokenId, nftResult.Error)
+		return "", fmt.Errorf("NFT %s 不存在", tokenId)
+	}
+
+	fmt.Printf("Token %s 找到NFT记录，URI: %s\n", tokenId, nft.URI)
+
+	// 第二步：处理IPFS hash格式差异
+	// NFT表存储格式：ipfs://QmVwgTpVvE56Nmx1YhFzzndwNUYw96xdmZcZ6esPzDbzfU
+	// 元数据表存储格式：QmVwgTpVvE56Nmx1YhFzzndwNUYw96xdmZcZ6esPzDbzfU
+	ipfsHash := nft.URI
+	pureHash := ipfsHash
+
+	// 如果URI以ipfs://开头，去掉前缀
+	if strings.HasPrefix(ipfsHash, "ipfs://") {
+		pureHash = strings.TrimPrefix(ipfsHash, "ipfs://")
+		fmt.Printf("Token %s 转换IPFS hash: %s -> %s\n", tokenId, ipfsHash, pureHash)
+	}
+
+	// 第三步：尝试两种格式查询元数据表
+	var metadata models.NFTMetadataDB
+	var metadataResult *gorm.DB
+
+	// 先尝试用纯hash查询
+	metadataResult = models.DB.Where("ip_fs_hash = ?", pureHash).First(&metadata)
+	if metadataResult.Error != nil {
+		fmt.Printf("用纯hash %s 查询失败，尝试用完整URI %s 查询\n", pureHash, ipfsHash)
+		// 再尝试用完整URI查询
+		metadataResult = models.DB.Where("ip_fs_hash = ?", ipfsHash).First(&metadata)
+		if metadataResult.Error != nil {
+			fmt.Printf("Token %s 的URI在元数据表中未找到记录。尝试的hash格式：%s 和 %s\n", tokenId, pureHash, ipfsHash)
+			return "", fmt.Errorf("NFT %s 还没有创建元数据和访问策略，请先在\"创建元数据\"页面为此NFT创建元数据", tokenId)
+		}
+	}
+
+	fmt.Printf("Token %s 成功找到元数据记录\n", tokenId)
+
+	// 第四步：检查策略是否为空
+	if metadata.Policy == "" {
+		fmt.Printf("Token %s 的元数据中没有设置访问策略\n", tokenId)
+		return "", fmt.Errorf("NFT %s 的元数据中没有设置访问策略，请更新元数据并设置访问策略", tokenId)
+	}
+
+	// 返回现有的访问策略
+	fmt.Printf("Token %s 找到访问策略: %s\n", tokenId, metadata.Policy)
+	return metadata.Policy, nil
 }
 
 // GetAllRequestsHandler 获取所有的子NFT申请记录

@@ -1,32 +1,31 @@
 <template>
   <div class="container mt-4">
     <div class="d-flex justify-content-between align-items-center mb-4">
-      <h2>DID 列表</h2>
-      <router-link to="/did/create" class="btn btn-primary">
-        <i class="bi bi-plus-circle me-1"></i>创建新 DID
-      </router-link>
+      <h2><i class="bi bi-person-badge me-2"></i>我的DID信息</h2>
+      <button class="btn btn-outline-primary" @click="refreshData">
+        <i class="bi bi-arrow-clockwise me-1"></i>刷新
+      </button>
     </div>
 
-    <div class="card mb-4">
+    <!-- 钱包连接状态 -->
+    <div v-if="!isWalletConnected" class="alert alert-warning">
+      <i class="bi bi-exclamation-triangle me-2"></i>
+      请先连接钱包以查看您的DID信息
+    </div>
+
+    <!-- 当前钱包信息 -->
+    <div v-if="isWalletConnected" class="card mb-4">
       <div class="card-body">
-        <div class="row">
-          <div class="col-md-8">
-            <div class="input-group">
-              <span class="input-group-text">
-                <i class="bi bi-search"></i>
-              </span>
-              <input type="text" class="form-control" placeholder="搜索 DID 或名称" v-model="searchQuery"
-                @input="filterDIDs">
-            </div>
-          </div>
-          <div class="col-md-4">
-            <select class="form-select" v-model="filterType" @change="filterDIDs">
-              <option value="all">所有 DID</option>
-              <option value="owned">我创建的</option>
-              <option value="shared">与我共享的</option>
-            </select>
-          </div>
-        </div>
+        <h5 class="card-title">
+          <i class="bi bi-wallet2 me-2"></i>当前钱包
+        </h5>
+        <p class="card-text">
+          <strong>地址：</strong>
+          <span class="text-monospace">{{ currentAccount }}</span>
+          <button class="btn btn-sm btn-outline-secondary ms-2" @click="copyToClipboard(currentAccount)">
+            <i class="bi bi-clipboard"></i>
+          </button>
+        </p>
       </div>
     </div>
 
@@ -34,155 +33,201 @@
       <div class="spinner-border text-primary" role="status">
         <span class="visually-hidden">加载中...</span>
       </div>
-      <p class="mt-2">加载 DID 列表...</p>
+      <p class="mt-2">加载DID信息...</p>
     </div>
 
-    <div v-else-if="filteredDIDs.length === 0" class="text-center my-5">
-      <i class="bi bi-person-badge fs-1 text-muted"></i>
-      <p class="lead mt-3">没有找到 DID</p>
-      <p class="text-muted">创建一个新的 DID 或调整搜索条件</p>
-      <router-link to="/did/create" class="btn btn-primary mt-2">
-        <i class="bi bi-plus-circle me-1"></i>创建新 DID
-      </router-link>
-    </div>
-
-    <div v-else>
-      <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
-        <div class="col" v-for="did in filteredDIDs" :key="did.id">
-          <div class="card h-100">
-            <div class="card-header d-flex justify-content-between align-items-center">
-              <h5 class="mb-0">{{ did.name }}</h5>
-              <span class="badge" :class="getStatusBadgeClass(did.status)">
-                {{ getStatusText(did.status) }}
-              </span>
-            </div>
-            <div class="card-body">
+    <!-- DID信息展示 -->
+    <div v-else-if="isWalletConnected">
+      <!-- 医生DID信息 -->
+      <div v-if="doctorDID" class="card mb-4">
+        <div class="card-header bg-success text-white">
+          <h5 class="mb-0">
+            <i class="bi bi-person-badge me-2"></i>医生DID信息
+          </h5>
+        </div>
+        <div class="card-body">
+          <div class="row">
+            <div class="col-md-6">
               <div class="mb-3">
-                <label class="form-label fw-bold">DID</label>
+                <label class="form-label fw-bold">DID标识符</label>
                 <div class="input-group">
-                  <input type="text" class="form-control" :value="did.did" readonly>
-                  <button class="btn btn-outline-secondary" @click="copyToClipboard(did.did)">
+                  <input type="text" class="form-control" :value="doctorDID.didString" readonly>
+                  <button class="btn btn-outline-secondary" @click="copyToClipboard(doctorDID.didString)">
                     <i class="bi bi-clipboard"></i>
                   </button>
                 </div>
               </div>
-
               <div class="mb-3">
-                <label class="form-label fw-bold">创建时间</label>
-                <p class="mb-0">{{ formatDate(did.createdAt) }}</p>
+                <label class="form-label fw-bold">医生姓名</label>
+                <p class="mb-0">{{ doctorDID.name }}</p>
               </div>
-
               <div class="mb-3">
-                <label class="form-label fw-bold">类型</label>
-                <p class="mb-0">{{ did.type }}</p>
-              </div>
-
-              <div class="mb-3">
-                <label class="form-label fw-bold">关联凭证</label>
-                <p class="mb-0">{{ did.vcCount || 0 }} 个凭证</p>
+                <label class="form-label fw-bold">执业编号</label>
+                <p class="mb-0">{{ doctorDID.licenseNumber }}</p>
               </div>
             </div>
-            <div class="card-footer">
-              <div class="d-flex justify-content-between">
-                <button class="btn btn-sm btn-outline-primary" @click="viewDetails(did)">
-                  <i class="bi bi-eye me-1"></i>详情
-                </button>
-                <div class="btn-group">
-                  <button class="btn btn-sm btn-outline-success" @click="issueVC(did)">
-                    <i class="bi bi-file-earmark-plus me-1"></i>颁发凭证
-                  </button>
-                  <button class="btn btn-sm btn-outline-danger" @click="confirmDelete(did)">
-                    <i class="bi bi-trash me-1"></i>删除
-                  </button>
+            <div class="col-md-6">
+              <div class="mb-3">
+                <label class="form-label fw-bold">创建时间</label>
+                <p class="mb-0">{{ formatDate(doctorDID.createdAt) }}</p>
+              </div>
+              <div class="mb-3">
+                <label class="form-label fw-bold">状态</label>
+                <span class="badge bg-success">{{ doctorDID.status }}</span>
+              </div>
+              <div class="mb-3">
+                <label class="form-label fw-bold">关联凭证</label>
+                <p class="mb-0">{{ doctorVCs.length }} 个</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 医生可验证凭证 -->
+      <div v-if="doctorVCs.length > 0" class="card mb-4">
+        <div class="card-header">
+          <h5 class="mb-0">
+            <i class="bi bi-card-checklist me-2"></i>医生可验证凭证 ({{ doctorVCs.length }})
+          </h5>
+        </div>
+        <div class="card-body">
+          <div class="row">
+            <div class="col-md-6 mb-3" v-for="vc in doctorVCs" :key="vc.id">
+              <div class="card border-primary">
+                <div class="card-header bg-primary text-white">
+                  <h6 class="mb-0">{{ vc.type }}</h6>
+                </div>
+                <div class="card-body">
+                  <div class="mb-2">
+                    <strong>凭证ID：</strong>
+                    <span class="text-monospace small">{{ vc.vcid }}</span>
+                    <button class="btn btn-sm btn-outline-secondary ms-1" @click="copyToClipboard(vc.vcid)">
+                      <i class="bi bi-clipboard"></i>
+                    </button>
+                  </div>
+                  <div class="mb-2">
+                    <strong>颁发者：</strong> {{ vc.issuerDID }}
+                  </div>
+                  <div class="mb-2">
+                    <strong>颁发时间：</strong> {{ formatDate(vc.issuedAt) }}
+                  </div>
+                  <div class="mb-2">
+                    <strong>过期时间：</strong> {{ formatDate(vc.expiresAt) }}
+                  </div>
+                  <div class="mb-2">
+                    <strong>状态：</strong>
+                    <span :class="['badge', vc.status === 'active' ? 'bg-success' : 'bg-warning']">
+                      {{ vc.status === 'active' ? '有效' : '无效' }}
+                    </span>
+                  </div>
+                  <div v-if="vc.content" class="mb-2">
+                    <strong>内容：</strong>
+                    <details>
+                      <summary class="text-primary" style="cursor: pointer;">点击查看详情</summary>
+                      <pre class="mt-2 bg-light p-2 rounded small">{{ formatVCContent(vc.content) }}</pre>
+                    </details>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
         </div>
       </div>
+
+      <!-- 普通DID列表 -->
+      <div v-if="normalDIDs.length > 0" class="card mb-4">
+        <div class="card-header">
+          <h5 class="mb-0">
+            <i class="bi bi-list-ul me-2"></i>其他DID信息 ({{ normalDIDs.length }})
+          </h5>
+        </div>
+        <div class="card-body">
+          <div class="table-responsive">
+            <table class="table">
+              <thead>
+                <tr>
+                  <th>DID标识符</th>
+                  <th>创建时间</th>
+                  <th>状态</th>
+                  <th>操作</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="did in normalDIDs" :key="did.id">
+                  <td>
+                    <span class="text-monospace">{{ truncateDID(did.didString) }}</span>
+                    <button class="btn btn-sm btn-outline-secondary ms-1" @click="copyToClipboard(did.didString)">
+                      <i class="bi bi-clipboard"></i>
+                    </button>
+                  </td>
+                  <td>{{ formatDate(did.createdAt) }}</td>
+                  <td>
+                    <span :class="['badge', did.status === 'active' ? 'bg-success' : 'bg-secondary']">
+                      {{ did.status === 'active' ? '活跃' : '非活跃' }}
+                    </span>
+                  </td>
+                  <td>
+                    <button class="btn btn-sm btn-outline-primary" @click="viewDIDDetails(did)">
+                      <i class="bi bi-eye"></i> 详情
+                    </button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- 无DID信息时的提示 -->
+      <div v-if="!doctorDID && normalDIDs.length === 0 && !loading" class="text-center my-5">
+        <i class="bi bi-person-badge fs-1 text-muted"></i>
+        <p class="lead mt-3">您还没有创建任何DID</p>
+        <p class="text-muted">DID（去中心化身份标识符）可以帮助您管理数字身份</p>
+        <router-link to="/did/doctor" class="btn btn-primary mt-2">
+          <i class="bi bi-hospital me-1"></i>创建医生DID
+        </router-link>
+      </div>
     </div>
 
-    <!-- DID 详情模态框 -->
+    <!-- DID详情模态框 -->
     <div class="modal fade" ref="detailsModal" tabindex="-1">
       <div class="modal-dialog modal-lg">
         <div class="modal-content">
           <div class="modal-header">
-            <h5 class="modal-title">DID 详情</h5>
+            <h5 class="modal-title">DID详情</h5>
             <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
           </div>
           <div class="modal-body" v-if="selectedDID">
             <div class="mb-3">
-              <label class="form-label fw-bold">名称</label>
-              <p>{{ selectedDID.name }}</p>
-            </div>
-
-            <div class="mb-3">
-              <label class="form-label fw-bold">DID</label>
+              <label class="form-label fw-bold">DID标识符</label>
               <div class="input-group">
-                <input type="text" class="form-control" :value="selectedDID.did" readonly>
-                <button class="btn btn-outline-secondary" @click="copyToClipboard(selectedDID.did)">
+                <input type="text" class="form-control" :value="selectedDID.didString" readonly>
+                <button class="btn btn-outline-secondary" @click="copyToClipboard(selectedDID.didString)">
                   <i class="bi bi-clipboard"></i>
                 </button>
               </div>
             </div>
 
             <div class="mb-3">
-              <label class="form-label fw-bold">DID 文档</label>
-              <pre class="bg-light p-3 rounded"><code>{{ JSON.stringify(selectedDID.document, null, 2) }}</code></pre>
+              <label class="form-label fw-bold">钱包地址</label>
+              <p>{{ selectedDID.walletAddress }}</p>
             </div>
 
             <div class="mb-3">
-              <label class="form-label fw-bold">关联凭证</label>
-              <div v-if="selectedDID.vcs && selectedDID.vcs.length > 0">
-                <div class="list-group">
-                  <a href="#" class="list-group-item list-group-item-action" v-for="(vc, index) in selectedDID.vcs"
-                    :key="index">
-                    <div class="d-flex w-100 justify-content-between">
-                      <h6 class="mb-1">{{ vc.type }}</h6>
-                      <small>{{ formatDate(vc.issuanceDate) }}</small>
-                    </div>
-                    <p class="mb-1">{{ vc.issuer }}</p>
-                    <small>ID: {{ vc.id }}</small>
-                  </a>
-                </div>
-              </div>
-              <p v-else class="text-muted">暂无关联凭证</p>
+              <label class="form-label fw-bold">创建时间</label>
+              <p>{{ formatDate(selectedDID.createdAt) }}</p>
+            </div>
+
+            <div class="mb-3">
+              <label class="form-label fw-bold">状态</label>
+              <span :class="['badge', selectedDID.status === 'active' ? 'bg-success' : 'bg-secondary']">
+                {{ selectedDID.status === 'active' ? '活跃' : '非活跃' }}
+              </span>
             </div>
           </div>
           <div class="modal-footer">
             <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
-            <button type="button" class="btn btn-primary" @click="exportDID">
-              <i class="bi bi-download me-1"></i>导出 DID 文档
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- 删除确认模态框 -->
-    <div class="modal fade" ref="deleteModal" tabindex="-1">
-      <div class="modal-dialog">
-        <div class="modal-content">
-          <div class="modal-header">
-            <h5 class="modal-title">确认删除</h5>
-            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-          </div>
-          <div class="modal-body" v-if="selectedDID">
-            <div class="alert alert-danger">
-              <i class="bi bi-exclamation-triangle-fill me-2"></i>
-              <strong>警告：</strong> 删除操作不可逆，将永久删除此 DID 及其相关数据。
-            </div>
-            <p>您确定要删除以下 DID 吗？</p>
-            <p><strong>名称：</strong> {{ selectedDID.name }}</p>
-            <p><strong>DID：</strong> {{ selectedDID.did }}</p>
-          </div>
-          <div class="modal-footer">
-            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
-            <button type="button" class="btn btn-danger" @click="deleteDID" :disabled="isDeleting">
-              <span v-if="isDeleting" class="spinner-border spinner-border-sm me-1" role="status"
-                aria-hidden="true"></span>
-              <i v-else class="bi bi-trash me-1"></i>确认删除
-            </button>
           </div>
         </div>
       </div>
@@ -191,305 +236,238 @@
 </template>
 
 <script>
+import { ref, computed, onMounted } from 'vue'
+import { useStore } from 'vuex'
+import { Modal } from 'bootstrap'
+
 export default {
   name: 'DIDList',
-  data() {
-    return {
-      loading: true,
-      isDeleting: false,
-      dids: [],
-      filteredDIDs: [],
-      searchQuery: '',
-      filterType: 'all',
-      selectedDID: null,
-      detailsModal: null,
-      deleteModal: null
-    };
-  },
-  mounted() {
-    this.fetchDIDs();
-    // 初始化Bootstrap模态框
-    this.detailsModal = new this.$bootstrap.Modal(this.$refs.detailsModal);
-    this.deleteModal = new this.$bootstrap.Modal(this.$refs.deleteModal);
-  },
-  methods: {
-    async fetchDIDs() {
-      this.loading = true;
-      try {
-        // 模拟API调用
-        // 实际应用中应该替换为真实的API调用
-        await new Promise(resolve => setTimeout(resolve, 800));
+  
+  setup() {
+    const store = useStore()
+    const detailsModal = ref(null)
+    let bsDetailsModal = null
 
-        // 模拟数据
-        this.dids = [
-          {
-            id: '1',
-            name: '个人身份',
-            did: 'did:example:123456789abcdefghi',
-            type: '个人',
-            status: 'active',
-            createdAt: new Date(Date.now() - 3600000).toISOString(),
-            vcCount: 3,
-            document: {
-              "@context": "https://www.w3.org/ns/did/v1",
-              "id": "did:example:123456789abcdefghi",
-              "verificationMethod": [
-                {
-                  "id": "did:example:123456789abcdefghi#keys-1",
-                  "type": "Ed25519VerificationKey2020",
-                  "controller": "did:example:123456789abcdefghi",
-                  "publicKeyMultibase": "zH3C2AVvLMv6gmMNam3uVAjZpfkcJCwDwnZn6z3wXmqPV"
-                }
-              ],
-              "authentication": [
-                "did:example:123456789abcdefghi#keys-1"
-              ]
-            },
-            vcs: [
-              {
-                id: 'vc:example:123',
-                type: '身份证明',
-                issuer: 'did:example:issuer123',
-                issuanceDate: new Date(Date.now() - 86400000).toISOString()
-              },
-              {
-                id: 'vc:example:456',
-                type: '医疗记录访问权限',
-                issuer: 'did:example:hospital123',
-                issuanceDate: new Date(Date.now() - 172800000).toISOString()
-              }
-            ]
-          },
-          {
-            id: '2',
-            name: '医疗身份',
-            did: 'did:example:abcdefghi123456789',
-            type: '医疗',
-            status: 'active',
-            createdAt: new Date(Date.now() - 86400000).toISOString(),
-            vcCount: 1,
-            document: {
-              "@context": "https://www.w3.org/ns/did/v1",
-              "id": "did:example:abcdefghi123456789",
-              "verificationMethod": [
-                {
-                  "id": "did:example:abcdefghi123456789#keys-1",
-                  "type": "Ed25519VerificationKey2020",
-                  "controller": "did:example:abcdefghi123456789",
-                  "publicKeyMultibase": "zH3C2AVvLMv6gmMNam3uVAjZpfkcJCwDwnZn6z3wXmqPV"
-                }
-              ],
-              "authentication": [
-                "did:example:abcdefghi123456789#keys-1"
-              ]
-            },
-            vcs: [
-              {
-                id: 'vc:example:789',
-                type: '医生资格证明',
-                issuer: 'did:example:medboard123',
-                issuanceDate: new Date(Date.now() - 259200000).toISOString()
-              }
-            ]
-          },
-          {
-            id: '3',
-            name: '工作身份',
-            did: 'did:example:9876543210abcdefghi',
-            type: '专业',
-            status: 'inactive',
-            createdAt: new Date(Date.now() - 172800000).toISOString(),
-            vcCount: 0,
-            document: {
-              "@context": "https://www.w3.org/ns/did/v1",
-              "id": "did:example:9876543210abcdefghi",
-              "verificationMethod": [
-                {
-                  "id": "did:example:9876543210abcdefghi#keys-1",
-                  "type": "Ed25519VerificationKey2020",
-                  "controller": "did:example:9876543210abcdefghi",
-                  "publicKeyMultibase": "zH3C2AVvLMv6gmMNam3uVAjZpfkcJCwDwnZn6z3wXmqPV"
-                }
-              ],
-              "authentication": [
-                "did:example:9876543210abcdefghi#keys-1"
-              ]
-            },
-            vcs: []
+    // 状态
+    const loading = ref(false)
+    const allDIDs = ref([])
+    const doctorVCs = ref([])
+    const selectedDID = ref(null)
+
+    // 计算属性
+    const isWalletConnected = computed(() => store.state.wallet.isConnected)
+    const currentAccount = computed(() => store.state.wallet.account)
+
+    // 分离医生DID和普通DID
+    const doctorDID = computed(() => {
+      if (!Array.isArray(allDIDs.value)) return null
+      return allDIDs.value.find(did => 
+        did.didString && did.didString.includes('ethr') && 
+        did.walletAddress === currentAccount.value
+      )
+    })
+
+    const normalDIDs = computed(() => {
+      if (!Array.isArray(allDIDs.value)) return []
+      return allDIDs.value.filter(did => 
+        !(did.didString && did.didString.includes('ethr') && 
+          did.walletAddress === currentAccount.value)
+      )
+    })
+
+    // 方法
+    const loadData = async () => {
+      console.log('loadData 开始执行')
+      console.log('isWalletConnected:', isWalletConnected.value)
+      console.log('currentAccount:', currentAccount.value)
+      console.log('store.state.wallet:', store.state.wallet)
+      
+      if (!isWalletConnected.value) {
+        console.log('钱包未连接，跳过加载数据')
+        return
+      }
+
+      loading.value = true
+      try {
+        // 获取钱包相关的DID列表
+        console.log('开始获取钱包相关的DID列表...')
+        const dids = await store.dispatch('did/getDIDsByWallet')
+        console.log('获取到的DID列表:', dids, '类型:', typeof dids, '是否为数组:', Array.isArray(dids))
+        
+        // 确保dids是数组类型
+        if (Array.isArray(dids)) {
+          allDIDs.value = dids
+        } else {
+          console.warn('返回的DID数据不是数组格式:', dids)
+          allDIDs.value = []
+        }
+
+        // 如果有医生DID，获取其凭证
+        if (doctorDID.value) {
+          console.log('找到医生DID，开始获取凭证:', doctorDID.value.didString)
+          try {
+            const vcs = await store.dispatch('did/getDoctorVCs', doctorDID.value.didString)
+            console.log('获取到的医生凭证:', vcs, '类型:', typeof vcs, '是否为数组:', Array.isArray(vcs))
+            
+            // 确保vcs是数组类型
+            if (Array.isArray(vcs)) {
+              doctorVCs.value = vcs
+            } else {
+              console.warn('返回的凭证数据不是数组格式:', vcs)
+              doctorVCs.value = []
+            }
+          } catch (error) {
+            console.warn('获取医生凭证失败:', error)
+            doctorVCs.value = []
           }
-        ];
-
-        this.filterDIDs();
-      } catch (error) {
-        console.error('获取DID列表失败:', error);
-        this.$store.commit('notifications/add', {
-          type: 'danger',
-          message: '获取DID列表失败: ' + error.message
-        });
-      } finally {
-        this.loading = false;
-      }
-    },
-    filterDIDs() {
-      if (!this.searchQuery && this.filterType === 'all') {
-        this.filteredDIDs = [...this.dids];
-        return;
-      }
-
-      let filtered = [...this.dids];
-
-      // 应用类型过滤
-      if (this.filterType !== 'all') {
-        if (this.filterType === 'owned') {
-          filtered = filtered.filter(did => did.type === '个人' || did.type === '专业');
-        } else if (this.filterType === 'shared') {
-          filtered = filtered.filter(did => did.type === '医疗');
+        } else {
+          console.log('没有找到医生DID')
+          doctorVCs.value = []
         }
+      } catch (error) {
+        console.error('加载DID数据失败:', error)
+        // 发生错误时确保数组状态
+        allDIDs.value = []
+        doctorVCs.value = []
+        store.dispatch('app/showError', '加载DID数据失败: ' + error.message)
+      } finally {
+        loading.value = false
       }
+    }
 
-      // 应用搜索过滤
-      if (this.searchQuery) {
-        const query = this.searchQuery.toLowerCase();
-        filtered = filtered.filter(did =>
-          did.name.toLowerCase().includes(query) ||
-          did.did.toLowerCase().includes(query) ||
-          did.type.toLowerCase().includes(query)
-        );
+    const refreshData = () => {
+      loadData()
+    }
+
+    const viewDIDDetails = (did) => {
+      selectedDID.value = did
+      if (bsDetailsModal) {
+        bsDetailsModal.show()
       }
+    }
 
-      this.filteredDIDs = filtered;
-    },
-    formatDate(dateString) {
-      if (!dateString) return '未知';
-      const date = new Date(dateString);
-      return date.toLocaleString();
-    },
-    getStatusBadgeClass(status) {
-      switch (status) {
-        case 'active':
-          return 'bg-success';
-        case 'inactive':
-          return 'bg-secondary';
-        case 'revoked':
-          return 'bg-danger';
-        case 'pending':
-          return 'bg-warning';
-        default:
-          return 'bg-primary';
-      }
-    },
-    getStatusText(status) {
-      switch (status) {
-        case 'active':
-          return '活跃';
-        case 'inactive':
-          return '未激活';
-        case 'revoked':
-          return '已撤销';
-        case 'pending':
-          return '待处理';
-        default:
-          return '未知';
-      }
-    },
-    viewDetails(did) {
-      this.selectedDID = did;
-      this.detailsModal.show();
-    },
-    issueVC(did) {
-      // 实现颁发凭证的逻辑
-      this.$router.push({
-        path: '/did/vc/issue',
-        query: { did: did.did }
-      });
-    },
-    confirmDelete(did) {
-      this.selectedDID = did;
-      this.deleteModal.show();
-    },
-    async deleteDID() {
-      if (!this.selectedDID) return;
+    const copyToClipboard = (text) => {
+      navigator.clipboard.writeText(text).then(() => {
+        store.dispatch('app/showSuccess', '已复制到剪贴板')
+      }).catch(() => {
+        store.dispatch('app/showError', '复制失败')
+      })
+    }
 
-      this.isDeleting = true;
+    const formatDate = (dateString) => {
+      if (!dateString) return '未知'
+      const date = new Date(dateString)
+      return date.toLocaleString()
+    }
 
+    const truncateDID = (did) => {
+      if (!did) return ''
+      if (did.length <= 30) return did
+      return did.substring(0, 15) + '...' + did.substring(did.length - 10)
+    }
+
+    const formatVCContent = (content) => {
       try {
-        // 模拟API调用
-        // 实际应用中应该替换为真实的API调用
-        await new Promise(resolve => setTimeout(resolve, 800));
-
-        // 从列表中移除
-        this.dids = this.dids.filter(did => did.id !== this.selectedDID.id);
-        this.filterDIDs();
-
-        // 关闭模态框
-        this.deleteModal.hide();
-
-        this.$store.commit('notifications/add', {
-          type: 'success',
-          message: 'DID 已成功删除'
-        });
-      } catch (error) {
-        console.error('删除DID失败:', error);
-        this.$store.commit('notifications/add', {
-          type: 'danger',
-          message: '删除DID失败: ' + error.message
-        });
-      } finally {
-        this.isDeleting = false;
-      }
-    },
-    copyToClipboard(text) {
-      navigator.clipboard.writeText(text).then(
-        () => {
-          this.$store.commit('notifications/add', {
-            type: 'success',
-            message: '已复制到剪贴板'
-          });
-        },
-        () => {
-          this.$store.commit('notifications/add', {
-            type: 'danger',
-            message: '复制到剪贴板失败'
-          });
+        if (typeof content === 'string') {
+          return JSON.stringify(JSON.parse(content), null, 2)
         }
-      );
-    },
-    exportDID() {
-      if (!this.selectedDID) return;
+        return JSON.stringify(content, null, 2)
+      } catch (error) {
+        return content
+      }
+    }
 
-      const documentStr = JSON.stringify(this.selectedDID.document, null, 2);
-      const blob = new Blob([documentStr], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
+    onMounted(() => {
+      console.log('DIDList 组件挂载')
+      console.log('挂载时钱包状态:', {
+        isConnected: isWalletConnected.value,
+        account: currentAccount.value
+      })
+      
+      // 初始化模态框
+      if (detailsModal.value) {
+        bsDetailsModal = new Modal(detailsModal.value)
+      }
 
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `${this.selectedDID.did.replace(/:/g, '-')}.json`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
+      // 如果钱包已连接，立即加载数据
+      if (isWalletConnected.value && currentAccount.value) {
+        console.log('钱包已连接，开始加载数据')
+        loadData()
+      }
 
-      this.$store.commit('notifications/add', {
-        type: 'success',
-        message: 'DID 文档已导出'
-      });
+      // 监听钱包连接状态变化
+      store.watch(
+        (state) => state.wallet.isConnected,
+        (isConnected, oldValue) => {
+          console.log('钱包连接状态变化:', { oldValue, isConnected })
+          if (isConnected && currentAccount.value) {
+            console.log('钱包已连接，重新加载数据')
+            loadData()
+          } else if (!isConnected) {
+            console.log('钱包已断开，清空数据')
+            allDIDs.value = []
+            doctorVCs.value = []
+          }
+        }
+      )
+
+      // 监听钱包账户变化
+      store.watch(
+        (state) => state.wallet.account,
+        (account, oldAccount) => {
+          console.log('钱包账户变化:', { oldAccount, account })
+          if (account && isWalletConnected.value) {
+            console.log('账户变化且钱包已连接，重新加载数据')
+            loadData()
+          }
+        }
+      )
+    })
+
+    return {
+      loading,
+      isWalletConnected,
+      currentAccount,
+      doctorDID,
+      normalDIDs,
+      doctorVCs,
+      selectedDID,
+      detailsModal,
+      refreshData,
+      viewDIDDetails,
+      copyToClipboard,
+      formatDate,
+      truncateDID,
+      formatVCContent
     }
   }
-};
+}
 </script>
 
 <style scoped>
+.text-monospace {
+  font-family: 'Courier New', monospace;
+}
+
 pre {
-  max-height: 300px;
+  max-height: 200px;
   overflow-y: auto;
+  font-size: 0.875rem;
 }
 
 .card {
-  transition: transform 0.3s;
+  transition: all 0.3s ease;
 }
 
 .card:hover {
-  transform: translateY(-5px);
-  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+details summary {
+  outline: none;
+}
+
+details[open] summary {
+  margin-bottom: 0.5rem;
 }
 </style>

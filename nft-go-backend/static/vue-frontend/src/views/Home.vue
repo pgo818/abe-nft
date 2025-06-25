@@ -31,7 +31,8 @@
                 <div class="mt-3">
                   <span class="badge bg-success me-2">属性加密</span>
                   <span class="badge bg-secondary me-2">密钥管理</span>
-                  <span class="badge bg-danger">访问控制</span>
+                  <span class="badge bg-danger me-2">访问控制</span>
+                  <span class="badge bg-info">IPFS管理</span>
                 </div>
               </div>
             </div>
@@ -80,8 +81,13 @@
           <div class="card mb-4">
             <div class="card-body">
               <h5 class="card-title"><i class="bi bi-shield-lock me-2"></i>ABE加密</h5>
-              <p class="card-text">基于属性的加密系统，提供细粒度的访问控制，可以对敏感数据进行加密保护。</p>
-              <router-link to="/abe" class="btn btn-outline-success">进入ABE平台</router-link>
+              <p class="card-text">基于属性的加密系统，提供细粒度的访问控制，可以对敏感数据进行加密保护。支持IPFS文件上传和Hash生成。</p>
+              <div class="d-flex gap-2">
+                <router-link to="/abe" class="btn btn-outline-success">进入ABE平台</router-link>
+                <router-link to="/abe/ipfs" class="btn btn-outline-info">
+                  <i class="bi bi-cloud-upload me-1"></i>IPFS管理
+                </router-link>
+              </div>
             </div>
           </div>
         </div>

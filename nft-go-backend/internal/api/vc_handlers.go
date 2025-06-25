@@ -247,14 +247,20 @@ func (h *VCHandlers) IssueDoctorVCHandler(c *gin.Context) {
 		return
 	}
 
-	// 构建响应
-	response := models.IssueDoctorVCResponse{
-		VCID:      vc.VCID,
-		DoctorDID: vc.DoctorDID,
-		IssuerDID: vc.IssuerDID,
-		VCType:    vc.Type,
-		IssuedAt:  vc.IssuedAt,
-		ExpiresAt: vc.ExpiresAt,
+	// 构建完整的响应，包含所有必要信息
+	response := gin.H{
+		"success": true,
+		"data": gin.H{
+			"id":        vc.VCID,
+			"vcId":      vc.VCID,
+			"doctorDID": vc.DoctorDID,
+			"issuerDID": vc.IssuerDID,
+			"type":      vc.Type,
+			"content":   vc.Content,
+			"issuedAt":  vc.IssuedAt.Format("2006-01-02T15:04:05Z"),
+			"expiresAt": vc.ExpiresAt.Format("2006-01-02T15:04:05Z"),
+			"status":    vc.Status,
+		},
 	}
 
 	c.JSON(http.StatusOK, response)
@@ -280,14 +286,14 @@ func (h *VCHandlers) VerifyDoctorVCHandler(c *gin.Context) {
 
 // GetDoctorVCsHandler 获取医生凭证列表处理程序
 func (h *VCHandlers) GetDoctorVCsHandler(c *gin.Context) {
-	var req models.GetDoctorVCsRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "无效的请求体: " + err.Error()})
+	doctorDID := c.Param("doctorDID")
+	if doctorDID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "医生DID参数不能为空"})
 		return
 	}
 
 	// 调用服务获取医生凭证列表
-	vcs, err := h.Service.GetDoctorVCs(req.DoctorDID)
+	vcs, err := h.Service.GetDoctorVCs(doctorDID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "获取医生凭证列表失败: " + err.Error()})
 		return
@@ -295,9 +301,21 @@ func (h *VCHandlers) GetDoctorVCsHandler(c *gin.Context) {
 
 	// 构建响应
 	response := models.GetDoctorVCsResponse{
-		DoctorDID: req.DoctorDID,
+		DoctorDID: doctorDID,
 		VCs:       vcs,
 	}
 
 	c.JSON(http.StatusOK, response)
+}
+
+// GetDoctorDIDsHandler 获取医生DID列表处理程序
+func (h *VCHandlers) GetDoctorDIDsHandler(c *gin.Context) {
+	// 调用服务获取所有医生DID
+	doctors, err := h.DIDService.GetAllDoctors()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "获取医生DID列表失败: " + err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"doctors": doctors})
 }

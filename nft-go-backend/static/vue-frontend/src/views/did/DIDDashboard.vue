@@ -15,9 +15,6 @@
             <router-link class="nav-link" :to="{ name: 'DIDList' }">
               <i class="bi bi-list-ul me-1"></i>DID列表
             </router-link>
-            <router-link class="nav-link" :to="{ name: 'DIDCreate' }">
-              <i class="bi bi-person-plus me-1"></i>创建DID
-            </router-link>
             <router-link class="nav-link" :to="{ name: 'DoctorDID' }">
               <i class="bi bi-hospital me-1"></i>医生DID
             </router-link>

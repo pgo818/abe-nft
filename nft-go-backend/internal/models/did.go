@@ -9,9 +9,9 @@ import (
 // DID 表示去中心化身份标识符的数据库模型
 type DID struct {
 	gorm.Model
-	DIDString     string `json:"didString" gorm:"unique;not null"` // 完整的DID字符串
-	WalletAddress string `json:"walletAddress" gorm:"unique"`      // 关联的钱包地址
-	Status        string `json:"status" gorm:"default:active"`     // DID状态：active, revoked
+	DIDString     string `json:"didString" gorm:"column:did_string;unique;not null"`     // 完整的DID字符串
+	WalletAddress string `json:"walletAddress" gorm:"column:wallet_address;unique"`      // 关联的钱包地址
+	Status        string `json:"status" gorm:"column:status;not null;default:'active'"` // DID状态：active, revoked
 }
 
 // TableName 指定表名
@@ -22,12 +22,12 @@ func (DID) TableName() string {
 // Doctor 医生身份表示数据库模型
 type Doctor struct {
 	gorm.Model
-	DIDString     string `json:"didString" gorm:"unique;not null"` // 医生DID
-	WalletAddress string `json:"walletAddress" gorm:"unique"`      // 钱包地址
-	Name          string `json:"name"`                             // 医生姓名
-	LicenseNumber string `json:"licenseNumber"`                    // 执业编号
-	Status        string `json:"status" gorm:"default:active"`     // 状态
-	HospitalDID   string `json:"hospitalDID"`                      // 所属医院DID
+	DIDString     string `json:"didString" gorm:"column:did_string;unique;not null"`                 // 医生DID
+	WalletAddress string `json:"walletAddress" gorm:"column:wallet_address;unique;not null"`         // 钱包地址
+	Name          string `json:"name" gorm:"column:name;not null"`                                   // 医生姓名
+	LicenseNumber string `json:"licenseNumber" gorm:"column:license_number;not null"`                // 执业编号
+	Status        string `json:"status" gorm:"column:status;not null;default:'active'"`              // 状态
+	HospitalDID   string `json:"hospitalDID" gorm:"column:hospital_did;default:''"`                  // 所属医院DID
 }
 
 // TableName 指定表名
@@ -38,15 +38,15 @@ func (Doctor) TableName() string {
 // DoctorVC 医生可验证凭证数据库模型
 type DoctorVC struct {
 	gorm.Model
-	VCID           string     `json:"vcId" gorm:"unique;not null"`  // 凭证ID
-	DoctorDID      string     `json:"doctorDID" gorm:"not null"`    // 医生DID
-	IssuerDID      string     `json:"issuerDID" gorm:"not null"`    // 颁发者DID (医院)
-	Type           string     `json:"type"`                         // 凭证类型，如"执业资格"
-	Content        string     `json:"content" gorm:"type:text"`     // 凭证内容
-	IssuedAt       time.Time  `json:"issuedAt"`                     // 颁发时间
-	ExpiresAt      time.Time  `json:"expiresAt"`                    // 过期时间
-	Status         string     `json:"status" gorm:"default:active"` // 状态：active, revoked
-	RevocationDate *time.Time `json:"revocationDate"`               // 撤销日期
+	VCID           string     `json:"vcId" gorm:"column:vcid;unique;not null"`                 // 凭证ID
+	DoctorDID      string     `json:"doctorDID" gorm:"column:doctor_did;not null"`             // 医生DID
+	IssuerDID      string     `json:"issuerDID" gorm:"column:issuer_did;not null"`             // 颁发者DID (医院)
+	Type           string     `json:"type" gorm:"column:type"`                                 // 凭证类型，如"执业资格"
+	Content        string     `json:"content" gorm:"column:content;type:text"`                 // 凭证内容
+	IssuedAt       time.Time  `json:"issuedAt" gorm:"column:issued_at;not null"`               // 颁发时间
+	ExpiresAt      time.Time  `json:"expiresAt" gorm:"column:expires_at;not null"`             // 过期时间
+	Status         string     `json:"status" gorm:"column:status;not null;default:'active'"`   // 状态：active, revoked
+	RevocationDate *time.Time `json:"revocationDate" gorm:"column:revocation_date"`            // 撤销日期
 }
 
 // TableName 指定表名

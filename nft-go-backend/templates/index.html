@@ -364,9 +364,45 @@
                                     placeholder="https://example.com">
                             </div>
                             <div class="mb-3">
-                                <label for="metadata-image" class="form-label">图像链接</label>
-                                <input type="url" class="form-control" id="metadata-image"
-                                    placeholder="https://example.com/image.jpg 或 ipfs://..." required>
+                                <label for="metadata-image" class="form-label">NFT图片</label>
+
+                                <!-- 图片上传区域 -->
+                                <div class="image-upload-section mb-3">
+                                    <!-- 上传按钮 -->
+                                    <div class="mb-2">
+                                        <input type="file" class="d-none" id="metadata-image-input"
+                                            accept="image/jpeg,image/jpg,image/png,image/gif,image/webp,image/svg+xml,image/bmp">
+                                        <button type="button" class="btn btn-outline-primary btn-sm"
+                                            onclick="document.getElementById('metadata-image-input').click()">
+                                            <i class="bi bi-cloud-upload me-1"></i>选择图片文件
+                                        </button>
+                                        <small class="text-muted ms-2">支持: JPG, PNG, GIF, WebP, SVG, BMP
+                                            (最大10MB)</small>
+                                    </div>
+
+                                    <!-- 图片预览 -->
+                                    <div id="metadata-image-preview" class="mb-2 d-none">
+                                        <div class="image-preview-container position-relative"
+                                            style="display: inline-block; max-width: 300px;">
+                                            <img id="metadata-preview-img" alt="图片预览"
+                                                style="max-width: 100%; max-height: 200px; border-radius: 0.5rem; border: 1px solid #dee2e6; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                                            <button type="button"
+                                                class="btn btn-danger btn-sm position-absolute top-0 end-0 m-1"
+                                                onclick="removeMetadataImage()" title="移除图片">
+                                                <i class="bi bi-x"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    <!-- 手动输入URL -->
+                                    <input type="url" class="form-control form-control-sm" id="metadata-image"
+                                        placeholder="或手动输入图片URL: https://example.com/image.jpg 或 ipfs://...">
+
+                                    <div class="form-text">
+                                        <i class="bi bi-info-circle me-1"></i>
+                                        可以上传图片文件或手动输入图片URL。上传的图片将自动存储到IPFS网络。
+                                    </div>
+                                </div>
                             </div>
                             <div class="mb-3">
                                 <label for="metadata-policy" class="form-label">策略</label>
@@ -1350,9 +1386,8 @@
                         </div>
                         <div class="mb-3">
                             <label for="request-child-uri" class="form-label">子NFT URI</label>
-                            <input type="text" class="form-control" id="request-child-uri" placeholder="ipfs://..."
-                                required>
-                            <div class="form-text">指向子NFT元数据的URI</div>
+                            <input type="text" class="form-control" id="request-child-uri" readonly>
+                            <div class="form-text">子NFT URI将自动使用父NFT的URI，确保保持一致</div>
                         </div>
                     </div>
                     <div class="modal-footer">

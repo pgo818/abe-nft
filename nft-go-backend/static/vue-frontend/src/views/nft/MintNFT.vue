@@ -116,24 +116,7 @@
                 </div>
               </div>
 
-              <!-- 访问控制信息 -->
-              <div v-if="hasAccessControl(previewMetadata)" class="mt-3">
-                <h6 class="border-bottom pb-2">访问控制</h6>
-                <div v-if="getPolicy(previewMetadata)" class="mt-2 mb-2">
-                  <div class="attribute-box p-2 border rounded bg-light">
-                    <div class="text-muted small">访问策略</div>
-                    <div class="fw-bold">{{ getPolicy(previewMetadata) }}</div>
-                  </div>
-                </div>
-                <div v-if="getCiphertext(previewMetadata)" class="mt-2">
-                  <div class="attribute-box p-2 border rounded bg-light">
-                    <div class="text-muted small">密文</div>
-                    <div class="fw-bold text-truncate" :title="getCiphertext(previewMetadata)">
-                      {{ truncateText(getCiphertext(previewMetadata), 20) }}
-                    </div>
-                  </div>
-                </div>
-              </div>
+
             </div>
           </div>
         </div>

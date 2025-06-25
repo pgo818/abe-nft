@@ -49,26 +49,19 @@
                 <div v-for="(attr, index) in getAttributes(nft)" :key="index" class="col-6">
                   <div class="attribute-box p-2 border rounded">
                     <div class="text-muted small">{{ attr.trait_type }}</div>
-                    <div class="fw-bold">{{ attr.value }}</div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <!-- 访问控制信息 -->
-            <div v-if="hasAccessControl(nft)" class="mt-3">
-              <h6 class="border-bottom pb-2">访问控制</h6>
-              <div v-if="getPolicy(nft)" class="mt-2 mb-2">
-                <div class="attribute-box p-2 border rounded bg-light">
-                  <div class="text-muted small">访问策略</div>
-                  <div class="fw-bold">{{ getPolicy(nft) }}</div>
-                </div>
-              </div>
-              <div v-if="getCiphertext(nft)" class="mt-2">
-                <div class="attribute-box p-2 border rounded bg-light">
-                  <div class="text-muted small">密文</div>
-                  <div class="fw-bold text-truncate" :title="getCiphertext(nft)">
-                    {{ truncateText(getCiphertext(nft), 20) }}
+                    <!-- 特殊处理密文显示 -->
+                    <div v-if="attr.trait_type === 'Encrypted_ciphertext'" class="fw-bold">
+                      <div class="ciphertext-container">
+                        <code class="small text-wrap">{{ truncateText(attr.value, 30) }}</code>
+                        <button v-if="attr.value && attr.value.length > 30" 
+                                class="btn btn-sm btn-outline-secondary mt-1" 
+                                @click="viewNFTDetails(nft)">
+                          <i class="bi bi-eye me-1"></i>查看完整密文
+                        </button>
+                      </div>
+                    </div>
+                    <!-- 其他属性正常显示 -->
+                    <div v-else class="fw-bold">{{ attr.value }}</div>
                   </div>
                 </div>
               </div>
@@ -76,14 +69,20 @@
 
             <div class="mt-3">
               <p class="card-text"><small class="text-muted">Token ID: {{ nft.tokenId }}</small></p>
+              <p class="card-text"><small class="text-muted">Owner: {{ formatAddress(nft.owner) }}</small></p>
             </div>
 
-            <div class="d-flex gap-2 mt-3">
+            <div class="d-flex flex-wrap gap-2 mt-3">
               <button class="btn btn-outline-primary btn-sm" @click="viewNFTDetails(nft)">
                 <i class="bi bi-info-circle me-1"></i>详情
               </button>
-              <button class="btn btn-outline-secondary btn-sm" @click="transferNFT(nft)">
-                <i class="bi bi-arrow-right me-1"></i>转移
+              <!-- 只有主NFT才能创建子NFT -->
+              <button v-if="!isChildNFT(nft)" class="btn btn-outline-success btn-sm" @click="createChildNFT(nft.tokenId)">
+                <i class="bi bi-plus-circle me-1"></i>创建子NFT
+              </button>
+              <!-- 只有主NFT才能更新元数据 -->
+              <button v-if="!isChildNFT(nft)" class="btn btn-outline-warning btn-sm" @click="updateMetadata(nft)">
+                <i class="bi bi-pencil-square me-1"></i>更新元数据
               </button>
             </div>
           </div>
@@ -137,40 +136,93 @@
                 <div v-if="getAttributes(selectedNFT) && getAttributes(selectedNFT).length > 0" class="mt-3">
                   <h6>属性</h6>
                   <div class="row g-2">
-                    <div v-for="(attr, index) in getAttributes(selectedNFT)" :key="index" class="col-6">
-                      <div class="attribute-box p-2 border rounded">
-                        <div class="text-muted small">{{ attr.trait_type }}</div>
-                        <div class="fw-bold">{{ attr.value }}</div>
+                    <div v-for="(attr, index) in getAttributes(selectedNFT)" :key="index" class="col-12">
+                      <div class="attribute-box p-3 border rounded">
+                        <div class="text-muted small mb-1">{{ attr.trait_type }}</div>
+                        <!-- 特殊处理密文显示 -->
+                        <div v-if="attr.trait_type === 'Encrypted_ciphertext'" class="fw-bold">
+                          <div class="ciphertext-detail">
+                            <div class="d-flex justify-content-between align-items-start mb-2">
+                              <span class="badge bg-secondary">密文 ({{ attr.value?.length || 0 }} 字符)</span>
+                              <button class="btn btn-sm btn-outline-primary" 
+                                      @click="copyToClipboard(attr.value)"
+                                      title="复制密文">
+                                <i class="bi bi-clipboard"></i>
+                              </button>
+                            </div>
+                            <div class="ciphertext-content p-2 border rounded bg-light" style="max-height: 200px; overflow-y: auto;">
+                              <code class="small text-wrap d-block">{{ attr.value }}</code>
+                            </div>
+                          </div>
+                        </div>
+                        <!-- 策略属性特殊显示 -->
+                        <div v-else-if="attr.trait_type === 'Policy'" class="fw-bold">
+                          <div class="policy-display">
+                            <span class="badge bg-info mb-2">访问策略</span>
+                            <div class="policy-content p-2 border rounded bg-light">
+                              <code class="text-primary">{{ attr.value }}</code>
+                            </div>
+                          </div>
+                        </div>
+                        <!-- 其他属性正常显示 -->
+                        <div v-else class="fw-bold">{{ attr.value }}</div>
                       </div>
                     </div>
                   </div>
                 </div>
 
-                <!-- 访问控制信息 -->
-                <div v-if="hasAccessControl(selectedNFT)" class="mt-3">
-                  <h6>访问控制</h6>
-                  <div v-if="getPolicy(selectedNFT)" class="mt-2">
-                    <div class="attribute-box p-2 border rounded bg-light">
-                      <div class="text-muted small">访问策略</div>
-                      <div class="fw-bold">{{ getPolicy(selectedNFT) }}</div>
-                    </div>
-                  </div>
-                  <div v-if="getCiphertext(selectedNFT)" class="mt-2">
-                    <div class="attribute-box p-2 border rounded bg-light">
-                      <div class="text-muted small">密文</div>
-                      <div class="fw-bold text-break">{{ getCiphertext(selectedNFT) }}</div>
-                    </div>
-                  </div>
-                </div>
+
               </div>
             </div>
           </div>
           <div class="modal-footer">
             <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
-            <button type="button" class="btn btn-primary" @click="transferNFT(selectedNFT)" v-if="selectedNFT">
-              <i class="bi bi-arrow-right me-1"></i>转移NFT
+            <!-- 只有主NFT才能更新元数据 -->
+            <button v-if="selectedNFT && !isChildNFT(selectedNFT)" 
+                    type="button" 
+                    class="btn btn-warning" 
+                    @click="updateMetadata(selectedNFT)">
+              <i class="bi bi-pencil-square me-1"></i>更新元数据
             </button>
           </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 更新URI模态框 -->
+    <div class="modal fade" ref="updateUriModal" tabindex="-1">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">更新NFT元数据URI</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <form @submit.prevent="submitUriUpdate">
+            <div class="modal-body">
+              <div class="mb-3">
+                <label for="current-uri" class="form-label">当前URI</label>
+                <input type="text" class="form-control" id="current-uri" :value="updateForm.currentUri" readonly>
+              </div>
+              <div class="mb-3">
+                <label for="new-uri" class="form-label">新URI</label>
+                <input type="text" class="form-control" id="new-uri" v-model="updateForm.newUri" 
+                       placeholder="输入新的NFT元数据URI..." required>
+                <div class="form-text">请输入有效的IPFS URI或HTTP URL</div>
+              </div>
+              <div class="mb-3">
+                <label for="token-id" class="form-label">Token ID</label>
+                <input type="text" class="form-control" id="token-id" :value="updateForm.tokenId" readonly>
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+              <button type="submit" class="btn btn-warning" :disabled="isUpdatingUri">
+                <span v-if="isUpdatingUri" class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
+                <i v-else class="bi bi-pencil-square me-1"></i>
+                {{ isUpdatingUri ? '更新中...' : '更新URI' }}
+              </button>
+            </div>
+          </form>
         </div>
       </div>
     </div>
@@ -191,7 +243,9 @@ export default {
     const store = useStore()
     const router = useRouter()
     const nftDetailsModal = ref(null)
+    const updateUriModal = ref(null)
     let bsDetailsModal = null
+    let bsUpdateUriModal = null
 
     // 从store获取数据
     const nfts = computed(() => store.state.nft.myNFTs)
@@ -200,6 +254,16 @@ export default {
 
     // 选中的NFT
     const selectedNFT = ref(null)
+
+    // 更新URI表单
+    const updateForm = ref({
+      tokenId: '',
+      currentUri: '',
+      newUri: ''
+    })
+
+    // 更新状态
+    const isUpdatingUri = ref(false)
 
     // 加载NFT列表
     const loadNFTs = async () => {
@@ -216,27 +280,150 @@ export default {
 
     // 获取NFT图像
     const getNFTImage = (nft) => {
-      return nft.metadata?.image || nft.uri
+      console.log('获取NFT图像:', nft.tokenId, nft.uri, nft.metadata)
+
+      // 如果有元数据且有图像URL
+      if (nft.metadata && nft.metadata.image) {
+        console.log('使用元数据中的图像:', nft.metadata.image)
+
+        // 处理IPFS链接
+        if (nft.metadata.image.startsWith('ipfs://')) {
+          const ipfsUrl = nft.metadata.image.replace('ipfs://', 'https://ipfs.io/ipfs/')
+          console.log('转换IPFS链接为HTTP:', ipfsUrl)
+          return ipfsUrl
+        }
+
+        return nft.metadata.image
+      }
+
+      // 如果URI是IPFS链接，转换为HTTP链接
+      if (nft.uri && nft.uri.startsWith('ipfs://')) {
+        const ipfsUrl = nft.uri.replace('ipfs://', 'https://ipfs.io/ipfs/')
+        console.log('使用转换后的URI作为图像:', ipfsUrl)
+        return ipfsUrl
+      }
+
+      // 如果URI是JSON字符串，尝试提取图像URL
+      if (nft.uri && nft.uri.trim().startsWith('{') && nft.uri.trim().endsWith('}')) {
+        try {
+          const uriData = JSON.parse(nft.uri)
+          if (uriData.image) {
+            console.log('从URI JSON中提取图像:', uriData.image)
+
+            // 处理IPFS链接
+            if (uriData.image.startsWith('ipfs://')) {
+              const ipfsUrl = uriData.image.replace('ipfs://', 'https://ipfs.io/ipfs/')
+              console.log('转换IPFS链接为HTTP:', ipfsUrl)
+              return ipfsUrl
+            }
+
+            return uriData.image
+          }
+        } catch (error) {
+          console.error('解析URI JSON失败:', error)
+        }
+      }
+
+      // 回退到URI或占位图
+      console.log('使用原始URI作为图像:', nft.uri)
+      return nft.uri || 'data:image/svg+xml;charset=UTF-8,%3Csvg%20width%3D%22200%22%20height%3D%22200%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Crect%20width%3D%22100%25%22%20height%3D%22100%25%22%20fill%3D%22%23f0f0f0%22%2F%3E%3Ctext%20x%3D%2250%25%22%20y%3D%2250%25%22%20font-family%3D%22Arial%22%20font-size%3D%2224%22%20text-anchor%3D%22middle%22%20dominant-baseline%3D%22middle%22%20fill%3D%22%23999%22%3ENFT%20%E5%8D%A0%E4%BD%8D%E5%9B%BE%3C%2Ftext%3E%3C%2Fsvg%3E'
     }
 
     // 获取NFT名称
     const getNFTName = (nft) => {
-      return nft.metadata?.name || 'NFT #' + nft.tokenId
+      console.log('获取NFT名称:', nft.tokenId, nft.uri)
+
+      // 如果有元数据且有名称
+      if (nft.metadata && nft.metadata.name) {
+        console.log('使用元数据中的名称:', nft.metadata.name)
+        return nft.metadata.name
+      }
+
+      // 如果URI是JSON字符串，尝试提取名称
+      if (nft.uri && nft.uri.trim().startsWith('{') && nft.uri.trim().endsWith('}')) {
+        try {
+          const uriData = JSON.parse(nft.uri)
+          if (uriData.name) {
+            console.log('从URI JSON中提取名称:', uriData.name)
+            return uriData.name
+          }
+        } catch (error) {
+          console.error('解析URI JSON失败:', error)
+        }
+      }
+
+      // 如果URI是IPFS链接，提取哈希作为名称的一部分
+      if (nft.uri && nft.uri.startsWith('ipfs://')) {
+        const ipfsHash = nft.uri.replace('ipfs://', '')
+        console.log('使用IPFS哈希作为名称的一部分:', ipfsHash)
+        return `NFT #${nft.tokenId} (${ipfsHash.substring(0, 8)}...)`
+      }
+
+      // 回退到默认名称
+      return 'NFT #' + nft.tokenId
     }
 
     // 获取NFT描述
     const getNFTDescription = (nft) => {
-      return nft.metadata?.description || 'No description'
+      console.log('获取NFT描述:', nft.tokenId, nft.uri)
+
+      // 如果有元数据且有描述
+      if (nft.metadata && nft.metadata.description) {
+        console.log('使用元数据中的描述:', nft.metadata.description)
+        return nft.metadata.description
+      }
+
+      // 如果URI是JSON字符串，尝试提取描述
+      if (nft.uri && nft.uri.trim().startsWith('{') && nft.uri.trim().endsWith('}')) {
+        try {
+          const uriData = JSON.parse(nft.uri)
+          if (uriData.description) {
+            console.log('从URI JSON中提取描述:', uriData.description)
+            return uriData.description
+          }
+        } catch (error) {
+          console.error('解析URI JSON失败:', error)
+        }
+      }
+
+      // 回退到默认描述
+      return 'This is an NFT created on our platform'
     }
 
     // 获取NFT属性
     const getAttributes = (nft) => {
-      return nft.metadata?.attributes || []
+      console.log('获取NFT属性:', nft.tokenId, nft.uri)
+
+      // 如果有元数据且有属性
+      if (nft.metadata && nft.metadata.attributes && Array.isArray(nft.metadata.attributes)) {
+        console.log('使用元数据中的属性:', nft.metadata.attributes)
+        return nft.metadata.attributes
+      }
+
+      // 如果URI是JSON字符串，尝试提取属性
+      if (nft.uri && nft.uri.trim().startsWith('{') && nft.uri.trim().endsWith('}')) {
+        try {
+          const uriData = JSON.parse(nft.uri)
+          if (uriData.attributes && Array.isArray(uriData.attributes)) {
+            console.log('从URI JSON中提取属性:', uriData.attributes)
+            return uriData.attributes
+          }
+        } catch (error) {
+          console.error('解析URI JSON失败:', error)
+        }
+      }
+
+      // 回退到默认属性
+      return [
+        { trait_type: 'Type', value: nft.contractType === 'child' ? 'Child NFT' : 'Main NFT' },
+        { trait_type: 'Rarity', value: 'Common' }
+      ]
     }
 
     // 获取NFT是否有属性
     const hasAttributes = (nft) => {
-      return nft.metadata?.attributes && nft.metadata.attributes.length > 0
+      const attributes = getAttributes(nft)
+      return attributes && attributes.length > 0
     }
 
     // 查看NFT详情
@@ -245,15 +432,6 @@ export default {
       if (bsDetailsModal) {
         bsDetailsModal.show()
       }
-    }
-
-    // 转移NFT
-    const transferNFT = (nft) => {
-      if (!nft) return
-
-      // 保存选中的NFT
-      store.commit('nft/setSelectedNFT', nft)
-      router.push({ name: 'TransferNFT', params: { tokenId: nft.tokenId } })
     }
 
     // 检查NFT是否有访问控制信息
@@ -292,6 +470,90 @@ export default {
       return text.length > maxLength ? text.substring(0, maxLength) + '...' : text
     }
 
+    // 复制到剪贴板
+    const copyToClipboard = async (text) => {
+      try {
+        await navigator.clipboard.writeText(text)
+        store.dispatch('app/showSuccess', '已复制到剪贴板')
+      } catch (error) {
+        console.error('复制失败:', error)
+        store.dispatch('app/showError', '复制失败')
+      }
+    }
+
+    // 创建子NFT
+    const createChildNFT = (parentTokenId) => {
+      // 跳转到创建子NFT页面或打开相应的模态框
+      router.push({ 
+        name: 'AllNFTs', 
+        query: { action: 'createChild', tokenId: parentTokenId } 
+      })
+    }
+
+    // 检查NFT是否为子NFT
+    const isChildNFT = (nft) => {
+      return nft.isChildNft || nft.contractType === 'child' || nft.parentTokenId
+    }
+
+    // 更新元数据
+    const updateMetadata = (nft) => {
+      // 关闭详情模态框（如果打开的话）
+      if (bsDetailsModal) {
+        bsDetailsModal.hide()
+      }
+      
+      // 填充更新表单
+      updateForm.value.tokenId = nft.tokenId
+      updateForm.value.currentUri = nft.uri
+      updateForm.value.newUri = ''
+      
+      // 打开更新URI模态框
+      if (bsUpdateUriModal) {
+        bsUpdateUriModal.show()
+      }
+    }
+
+    // 提交更新URI
+    const submitUriUpdate = async () => {
+      if (!updateForm.value.newUri.trim()) {
+        store.dispatch('app/showError', '请输入新的URI')
+        return
+      }
+
+      isUpdatingUri.value = true
+      try {
+        // 调用API更新NFT的URI
+        await store.dispatch('nft/updateNFTMetadataURI', {
+          tokenId: updateForm.value.tokenId,
+          newUri: updateForm.value.newUri
+        })
+        
+        store.dispatch('app/showSuccess', 'NFT元数据URI更新成功')
+        
+        // 关闭模态框
+        if (bsUpdateUriModal) {
+          bsUpdateUriModal.hide()
+        }
+        
+        // 重置表单
+        updateForm.value = {
+          tokenId: '',
+          currentUri: '',
+          newUri: ''
+        }
+        
+        // 刷新NFT列表
+        await loadNFTs()
+        
+      } catch (error) {
+        console.error('更新NFT元数据URI失败:', error)
+        const errorMessage = error.response?.data?.error || error.message || '更新NFT元数据URI失败'
+        store.dispatch('app/showError', errorMessage)
+      } finally {
+        isUpdatingUri.value = false
+      }
+    }
+
     onMounted(() => {
       // 加载NFT列表
       loadNFTs()
@@ -299,6 +561,9 @@ export default {
       // 初始化模态框
       if (nftDetailsModal.value) {
         bsDetailsModal = new Modal(nftDetailsModal.value)
+      }
+      if (updateUriModal.value) {
+        bsUpdateUriModal = new Modal(updateUriModal.value)
       }
     })
 
@@ -308,9 +573,9 @@ export default {
       isConnected,
       selectedNFT,
       nftDetailsModal,
+      updateUriModal,
       handleImageError,
       viewNFTDetails,
-      transferNFT,
       hasAccessControl,
       getPolicy,
       getCiphertext,
@@ -320,7 +585,14 @@ export default {
       getNFTName,
       getNFTDescription,
       getAttributes,
-      hasAttributes
+      hasAttributes,
+      createChildNFT,
+      copyToClipboard,
+      isChildNFT,
+      updateMetadata,
+      updateForm,
+      isUpdatingUri,
+      submitUriUpdate
     }
   }
 }
@@ -348,5 +620,59 @@ export default {
 
 .attribute-box:hover {
   background-color: rgba(0, 0, 0, 0.05);
+}
+
+/* 密文相关样式 */
+.ciphertext-container {
+  max-width: 100%;
+}
+
+.ciphertext-container code {
+  word-break: break-all;
+  white-space: pre-wrap;
+  color: #666;
+}
+
+.ciphertext-detail .ciphertext-content {
+  font-family: 'Courier New', monospace;
+  font-size: 0.85rem;
+  line-height: 1.4;
+}
+
+.ciphertext-detail .ciphertext-content code {
+  color: #2c3e50;
+  background: transparent;
+  border: none;
+  padding: 0;
+}
+
+.policy-display .policy-content code {
+  color: #0d6efd;
+  font-weight: 600;
+}
+
+/* 响应式调整 */
+@media (max-width: 768px) {
+  .col-6 {
+    flex: 0 0 100%;
+    max-width: 100%;
+  }
+  
+  /* 移动设备上的按钮样式 */
+  .d-flex.flex-wrap {
+    justify-content: center;
+  }
+  
+  .btn-sm {
+    font-size: 0.8rem;
+    padding: 0.375rem 0.75rem;
+  }
+}
+
+@media (max-width: 576px) {
+  .d-flex.flex-wrap .btn {
+    flex: 1 1 auto;
+    min-width: 100px;
+  }
 }
 </style>

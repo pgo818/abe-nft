@@ -58,7 +58,10 @@ type ChildNFTRequest struct {
 	ParentTokenId    string `json:"parentTokenId"`
 	ApplicantAddress string `json:"applicantAddress"`
 	URI              string `json:"uri"`
-	Status           string `json:"status" gorm:"default:pending"` // pending, approved, rejected
+	Status           string `json:"status" gorm:"default:pending"`     // pending, approved, rejected, auto_approved
+	VCCredentials    string `json:"vcCredentials"`                     // 提交的VC凭证（JSON）
+	AutoApproved     bool   `json:"autoApproved" gorm:"default:false"` // 是否自动审核通过
+	PolicyResult     string `json:"policyResult"`                      // 策略验证结果（JSON）
 }
 
 // MarshalJSON 自定义JSON序列化，确保ID字段被正确包含
@@ -79,6 +82,8 @@ type RequestChildNFTRequest struct {
 	ParentTokenId    string `json:"parentTokenId" binding:"required"`
 	ApplicantAddress string `json:"applicantAddress" binding:"required"`
 	URI              string `json:"uri" binding:"required"`
+	VCCredentials    string `json:"vcCredentials,omitempty"` // VC凭证JSON字符串（可选）
+	AutoApprove      bool   `json:"autoApprove,omitempty"`   // 是否尝试自动审核
 }
 
 // TransactionResponse 表示交易响应的结构
@@ -148,6 +153,13 @@ type UpdateMetadataRequest struct {
 	TokenID      string `json:"tokenId" binding:"required"`
 	NewURI       string `json:"newUri" binding:"required"`
 	ContractType string `json:"contractType" binding:"required"` // "main" 或 "child"
+}
+
+// UpdateURIRequest 表示更新NFT URI的请求结构
+type UpdateURIRequest struct {
+	SignedRequest
+	TokenID string `json:"tokenId" binding:"required"`
+	NewURI  string `json:"newUri" binding:"required"`
 }
 
 // GetAllRequestsResponse 表示获取所有申请记录的响应结构
