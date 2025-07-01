@@ -15,6 +15,7 @@ import (
 
 	"github.com/ABE/nft/nft-go-backend/internal/blockchain"
 	"github.com/ABE/nft/nft-go-backend/internal/models"
+	abe "github.com/ABE/nft/nft-go-backend/internal/api/abe/service"
 )
 
 // ChildNFTHandlers 子NFT相关处理程序结构体
@@ -182,7 +183,7 @@ func (h *ChildNFTHandlers) RequestChildNFTHandler(c *gin.Context) {
 			fmt.Printf("NFT访问策略: %s\n", accessPolicy)
 
 			// 创建ABE服务实例进行策略验证
-			abeService := NewABEService(models.DB)
+			abeService := abe.NewABEService(models.DB)
 
 			// 验证VC凭证是否满足策略
 			satisfied, verificationResult, err := abeService.VerifyVCAgainstPolicy(req.VCCredentials, accessPolicy)

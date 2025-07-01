@@ -6,17 +6,17 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/ABE/nft/nft-go-backend/internal/models"
-	"github.com/ABE/nft/nft-go-backend/internal/service"
+	did_vc "github.com/ABE/nft/nft-go-backend/internal/api/did_vc/service"
 )
 
 // VCHandlers 可验证凭证相关处理程序结构体
 type VCHandlers struct {
-	Service    *service.VCService
-	DIDService *service.DIDService
+	Service    *did_vc.VCService
+	DIDService *did_vc.DIDService
 }
 
 // NewVCHandlers 创建新的VC处理程序
-func NewVCHandlers(vcService *service.VCService, didService *service.DIDService) *VCHandlers {
+func NewVCHandlers(vcService *did_vc.VCService, didService *did_vc.DIDService) *VCHandlers {
 	return &VCHandlers{
 		Service:    vcService,
 		DIDService: didService,

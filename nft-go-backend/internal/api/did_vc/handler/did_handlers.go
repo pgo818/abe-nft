@@ -6,16 +6,16 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/ABE/nft/nft-go-backend/internal/models"
-	"github.com/ABE/nft/nft-go-backend/internal/service"
+	did_vc "github.com/ABE/nft/nft-go-backend/internal/api/did_vc/service"
 )
 
 // DIDHandlers DID相关处理程序结构体
 type DIDHandlers struct {
-	Service *service.DIDService
+	Service *did_vc.DIDService
 }
 
 // NewDIDHandlers 创建新的DID处理程序
-func NewDIDHandlers(service *service.DIDService) *DIDHandlers {
+func NewDIDHandlers(service *did_vc.DIDService) *DIDHandlers {
 	return &DIDHandlers{
 		Service: service,
 	}

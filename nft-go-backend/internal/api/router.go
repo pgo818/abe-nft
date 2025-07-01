@@ -5,37 +5,43 @@ import (
 
 	"github.com/ABE/nft/nft-go-backend/internal/blockchain"
 	"github.com/ABE/nft/nft-go-backend/internal/models"
-	"github.com/ABE/nft/nft-go-backend/internal/service"
+
+	abe "github.com/ABE/nft/nft-go-backend/internal/api/abe/handler"
+	nft "github.com/ABE/nft/nft-go-backend/internal/api/nft/handler"
+	did_vc "github.com/ABE/nft/nft-go-backend/internal/api/did_vc/handler"
+	abe_service "github.com/ABE/nft/nft-go-backend/internal/api/abe/service"
+	did_vc_service "github.com/ABE/nft/nft-go-backend/internal/api/did_vc/service"
+
 )
 
 // Router 主路由结构体
 type Router struct {
-	NFTHandlers      *NFTHandlers
-	ChildNFTHandlers *ChildNFTHandlers
-	MetadataHandlers *MetadataHandlers
-	ABEHandlers      *ABEHandlers
-	DIDHandlers      *DIDHandlers
-	VCHandlers       *VCHandlers
+	NFTHandlers      *nft.NFTHandlers
+	ChildNFTHandlers *nft.ChildNFTHandlers
+	MetadataHandlers *nft.MetadataHandlers
+	ABEHandlers      *abe.ABEHandlers
+	DIDHandlers      *did_vc.DIDHandlers
+	VCHandlers       *did_vc.VCHandlers
 }
 
 // NewRouter 创建新的路由实例
 func NewRouter(client *blockchain.EthClient) *Router {
 	// 获取数据库连接
 	db := models.GetDB()
-	abeService := NewABEService(db)
+	abeService := abe_service.NewABEService(db)
 
 	// 创建DID服务
-	didService := service.NewDIDService(db)
+	didService := did_vc_service.NewDIDService(db)
 	// 创建VC服务
-	vcService := service.NewVCService(db)
+	vcService := did_vc_service.NewVCService(db)
 
 	return &Router{
-		NFTHandlers:      NewNFTHandlers(client),
-		ChildNFTHandlers: NewChildNFTHandlers(client),
-		MetadataHandlers: NewMetadataHandlers(client),
-		ABEHandlers:      NewABEHandlers(abeService),
-		DIDHandlers:      NewDIDHandlers(didService),
-		VCHandlers:       NewVCHandlers(vcService, didService),
+		NFTHandlers:      nft.NewNFTHandlers(client),
+		ChildNFTHandlers: nft.NewChildNFTHandlers(client),
+		MetadataHandlers: nft.NewMetadataHandlers(client),
+		ABEHandlers:      abe.NewABEHandlers(abeService),
+		DIDHandlers:      did_vc.NewDIDHandlers(didService),
+		VCHandlers:       did_vc.NewVCHandlers(vcService, didService),
 	}
 }
 

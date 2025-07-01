@@ -11,15 +11,16 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	abe "github.com/ABE/nft/nft-go-backend/internal/api/abe/service"
 )
 
 // ABEHandlers ABE相关处理程序结构体
 type ABEHandlers struct {
-	Service *ABEService
+	Service *abe.ABEService
 }
 
 // NewABEHandlers 创建新的ABE处理程序
-func NewABEHandlers(service *ABEService) *ABEHandlers {
+func NewABEHandlers(service *abe.ABEService) *ABEHandlers {
 	return &ABEHandlers{
 		Service: service,
 	}

@@ -66,10 +66,10 @@ func main() {
 	r.LoadHTMLGlob(templatesPath)
 
 	// 初始化API处理程序（现在包含ABE功能）
-	handlers := api.NewHandlers(client)
+	router := api.NewRouter(client)
 
 	// 设置路由
-	handlers.SetupRoutes(r)
+	router.SetupRoutes(r)
 
 	// 启动事件监听（非阻塞）
 	go client.ListenToEvents()

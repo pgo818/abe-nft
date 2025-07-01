@@ -1,30 +1,27 @@
 package api
 
 import (
-	"bytes"
-	"encoding/base64"
-	"encoding/json"
 	"fmt"
 	"io"
-	"mime/multipart"
 	"net/http"
 	"strings"
 
 	"github.com/gin-gonic/gin"
 
+	"github.com/ABE/nft/nft-go-backend/internal/api/nft/service"
 	"github.com/ABE/nft/nft-go-backend/internal/blockchain"
 	"github.com/ABE/nft/nft-go-backend/internal/models"
 )
 
 // MetadataHandlers 元数据相关处理程序结构体
 type MetadataHandlers struct {
-	Client *blockchain.EthClient
+	Service *service.MetadataService
 }
 
 // NewMetadataHandlers 创建新的元数据处理程序
 func NewMetadataHandlers(client *blockchain.EthClient) *MetadataHandlers {
 	return &MetadataHandlers{
-		Client: client,
+		Service: service.NewMetadataService(client),
 	}
 }
 
@@ -37,57 +34,10 @@ func (h *MetadataHandlers) CreateMetadataHandler(c *gin.Context) {
 		return
 	}
 
-	// 构造元数据对象
-	metadata := map[string]interface{}{
-		"description":  req.Description,
-		"external_url": req.ExternalURL,
-		"image":        req.Image,
-		"name":         req.Name,
-		"attributes": []map[string]interface{}{
-			{
-				"trait_type": "Policy",
-				"value":      req.Policy,
-			},
-			{
-				"trait_type": "Encrypted_ciphertext",
-				"value":      req.Ciphertext,
-			},
-		},
-	}
-
-	// 将元数据转换为JSON
-	metadataJSON, err := json.Marshal(metadata)
+	response, err := h.Service.CreateMetadata(req)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "JSON序列化失败: " + err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
-	}
-
-	// 上传到本地IPFS
-	ipfsHash, err := h.uploadToLocalIPFS(metadataJSON)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "上传到本地IPFS失败: " + err.Error()})
-		return
-	}
-
-	// 尝试保存到数据库，但忽略错误
-	metadataDB := models.NFTMetadataDB{
-		Name:        req.Name,
-		Description: req.Description,
-		ExternalURL: req.ExternalURL,
-		Image:       req.Image,
-		Policy:      req.Policy,
-		Ciphertext:  req.Ciphertext,
-		IPFSHash:    ipfsHash,
-	}
-
-	// 尝试保存，但忽略错误
-	models.DB.Create(&metadataDB)
-	// 不检查错误，直接继续
-
-	// 返回响应
-	response := models.MetadataResponse{
-		IPFSHash: ipfsHash,
-		Message:  "元数据已成功创建并保存到IPFS",
 	}
 
 	c.JSON(http.StatusOK, response)
@@ -97,29 +47,10 @@ func (h *MetadataHandlers) CreateMetadataHandler(c *gin.Context) {
 func (h *MetadataHandlers) GetMetadataHandler(c *gin.Context) {
 	ipfsHash := c.Param("hash")
 
-	var metadata models.NFTMetadataDB
-	result := models.DB.Where("ipfs_hash = ?", ipfsHash).First(&metadata)
-	if result.Error != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "元数据不存在"})
+	response, err := h.Service.GetMetadata(ipfsHash)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
 		return
-	}
-
-	// 构造响应
-	response := map[string]interface{}{
-		"description":  metadata.Description,
-		"external_url": metadata.ExternalURL,
-		"image":        metadata.Image,
-		"name":         metadata.Name,
-		"attributes": []map[string]interface{}{
-			{
-				"trait_type": "Policy",
-				"value":      metadata.Policy,
-			},
-			{
-				"trait_type": "Encrypted_ciphertext",
-				"value":      metadata.Ciphertext,
-			},
-		},
 	}
 
 	c.JSON(http.StatusOK, response)
@@ -127,10 +58,9 @@ func (h *MetadataHandlers) GetMetadataHandler(c *gin.Context) {
 
 // GetAllMetadataHandler 获取所有元数据
 func (h *MetadataHandlers) GetAllMetadataHandler(c *gin.Context) {
-	var metadataList []models.NFTMetadataDB
-	result := models.DB.Find(&metadataList)
-	if result.Error != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "查询元数据失败: " + result.Error.Error()})
+	metadataList, err := h.Service.GetAllMetadata()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
@@ -150,120 +80,18 @@ func (h *MetadataHandlers) UploadToIPFSHandler(c *gin.Context) {
 		return
 	}
 
-	// 如果没有提供文件名，使用默认值
-	if req.Filename == "" {
-		if req.IsBinary {
-			req.Filename = "data.bin"
-		} else {
-			req.Filename = "data.txt"
-		}
-	}
-
-	var data []byte
-	var err error
-
-	if req.IsBinary {
-		// 处理二进制数据：Base64解码
-		data, err = base64.StdEncoding.DecodeString(req.Data)
-		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Base64解码失败: " + err.Error()})
-			return
-		}
-	} else {
-		// 处理文本数据
-		data = []byte(req.Data)
-	}
-
-	// 上传到本地IPFS
-	ipfsHash, err := h.uploadToLocalIPFSWithFilename(data, req.Filename)
+	response, err := h.Service.UploadToIPFS(req.Data, req.Filename, req.IsBinary)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "上传到IPFS失败: " + err.Error()})
+		if strings.Contains(err.Error(), "Base64解码失败") {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		} else {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		}
 		return
 	}
 
 	// 返回响应
-	c.JSON(http.StatusOK, gin.H{
-		"hash":      ipfsHash,
-		"url":       "ipfs://" + ipfsHash,
-		"message":   "数据已成功上传到IPFS",
-		"filename":  req.Filename,
-		"is_binary": req.IsBinary,
-		"size":      len(data),
-	})
-}
-
-// uploadToLocalIPFSWithFilename 上传到本地IPFS节点（带文件名）
-func (h *MetadataHandlers) uploadToLocalIPFSWithFilename(data []byte, filename string) (string, error) {
-	// 本地IPFS节点的API地址（默认端口5001）
-	ipfsAPIURL := "http://localhost:5001/api/v0/add"
-
-	var buf bytes.Buffer
-	writer := multipart.NewWriter(&buf)
-
-	// 创建文件字段
-	part, err := writer.CreateFormFile("file", filename)
-	if err != nil {
-		return "", fmt.Errorf("创建表单文件失败: %w", err)
-	}
-
-	// 写入数据
-	_, err = part.Write(data)
-	if err != nil {
-		return "", fmt.Errorf("写入数据失败: %w", err)
-	}
-
-	// 关闭writer
-	err = writer.Close()
-	if err != nil {
-		return "", fmt.Errorf("关闭writer失败: %w", err)
-	}
-
-	// 创建HTTP请求
-	req, err := http.NewRequest("POST", ipfsAPIURL, &buf)
-	if err != nil {
-		return "", fmt.Errorf("创建请求失败: %w", err)
-	}
-
-	// 设置Content-Type
-	req.Header.Set("Content-Type", writer.FormDataContentType())
-
-	// 发送请求到本地IPFS节点
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		return "", fmt.Errorf("发送请求到本地IPFS失败: %w", err)
-	}
-	defer resp.Body.Close()
-
-	// 检查响应状态
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return "", fmt.Errorf("本地IPFS API返回错误 %d: %s", resp.StatusCode, string(body))
-	}
-
-	// 解析响应
-	var result struct {
-		Hash string `json:"Hash"`
-		Name string `json:"Name"`
-		Size string `json:"Size"`
-	}
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return "", fmt.Errorf("读取响应失败: %w", err)
-	}
-
-	err = json.Unmarshal(body, &result)
-	if err != nil {
-		return "", fmt.Errorf("解析响应失败: %w", err)
-	}
-
-	return result.Hash, nil
-}
-
-// uploadToLocalIPFS 上传到本地IPFS节点（兼容性包装器）
-func (h *MetadataHandlers) uploadToLocalIPFS(data []byte) (string, error) {
-	return h.uploadToLocalIPFSWithFilename(data, "metadata.json")
+	c.JSON(http.StatusOK, response)
 }
 
 // DownloadFromIPFSHandler 通过Hash从IPFS下载文件
@@ -281,12 +109,14 @@ func (h *MetadataHandlers) DownloadFromIPFSHandler(c *gin.Context) {
 		return
 	}
 
-	// 从本地IPFS节点获取文件
-	content, contentType, err := h.getFromLocalIPFS(hash)
+	content, err := h.Service.GetFromIPFS(hash)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "从IPFS获取文件失败: " + err.Error()})
 		return
 	}
+
+	// 检测内容类型
+	contentType := h.detectContentType(content)
 
 	// 设置响应头
 	c.Header("Content-Type", contentType)
